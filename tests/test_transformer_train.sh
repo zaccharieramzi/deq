@@ -3,7 +3,7 @@ set -e
 
 cd deq/deq_sequence
 
-bash deq/deq_sequence/get_data.sh
+bash get_data.sh
 
 python train_transformer.py \
         --data ./data/wikitext-103/ \

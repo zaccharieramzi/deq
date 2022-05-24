@@ -34,4 +34,4 @@ python train_transformer.py \
         --f_thres 5 \
         --b_thres 5 \
         --batch_size 56 \
-        --debug
+        --name test

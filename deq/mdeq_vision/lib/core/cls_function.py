@@ -134,7 +134,12 @@ def validate(config, val_loader, model, criterion, lr_scheduler, epoch, output_d
     with torch.no_grad():
         end = time.time()
         # tk0 = tqdm(enumerate(val_loader), total=len(val_loader), position=0, leave=True)
+        total_batch_num = len(val_loader)
+        effec_batch_num = int(config.PERCENT * total_batch_num)
         for i, (input, target) in enumerate(val_loader):
+            # eval on partial data as well for debugging purposes
+            if i >= effec_batch_num: break
+
             # compute output
             output, _, sradius = model(input,
                                  train_step=(-1 if epoch < 0 else (lr_scheduler._step_count-1)),

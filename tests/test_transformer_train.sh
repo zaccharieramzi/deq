@@ -33,4 +33,5 @@ python train_transformer.py \
         --stop_mode rel \
         --f_thres 5 \
         --b_thres 5 \
-        --batch_size 56
+        --batch_size 56 \
+        --debug

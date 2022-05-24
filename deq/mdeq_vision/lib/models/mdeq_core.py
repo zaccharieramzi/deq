@@ -216,7 +216,8 @@ class MDEQModule(nn.Module):
             self.post_fuse_layers[i].conv = conv
 
         # Throw away garbage
-        torch.cuda.empty_cache()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
 
     def _reset(self, xs):
         """
@@ -448,7 +449,8 @@ class MDEQNet(nn.Module):
                 def backward_hook(grad):
                     if self.hook is not None:
                         self.hook.remove()
-                        torch.cuda.synchronize()
+                        if torch.cuda.is_available():
+                            torch.cuda.synchronize()
                     result = self.b_solver(lambda y: autograd.grad(new_z1, z1, y, retain_graph=True)[0] + grad, torch.zeros_like(grad),
                                           threshold=b_thres, stop_mode=self.stop_mode, name="backward")
                     return result['result']

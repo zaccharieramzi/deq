@@ -65,7 +65,8 @@ def train(config, train_loader, model, criterion, optimizer, lr_scheduler, epoch
         output, jac_loss, _ = model(input, train_step=(lr_scheduler._step_count-1),
                                     compute_jac_loss=compute_jac_loss,
                                     f_thres=f_thres, b_thres=b_thres, writer=writer)
-        target = target.cuda(non_blocking=True)
+        if torch.cuda.is_available():
+            target = target.cuda(non_blocking=True)
         loss = criterion(output, target)
         jac_loss = jac_loss.mean()
 
@@ -139,7 +140,8 @@ def validate(config, val_loader, model, criterion, lr_scheduler, epoch, output_d
                                  train_step=(-1 if epoch < 0 else (lr_scheduler._step_count-1)),
                                  compute_jac_loss=False, spectral_radius_mode=spectral_radius_mode,
                                  writer=writer)
-            target = target.cuda(non_blocking=True)
+            if torch.cuda.is_available():
+                target = target.cuda(non_blocking=True)
             loss = criterion(output, target)
 
             # measure accuracy and record loss

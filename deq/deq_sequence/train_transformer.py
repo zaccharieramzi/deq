@@ -362,7 +362,10 @@ if args.restart:
     #       be stored in `args.restart_dir`
     if os.path.exists(os.path.join(args.restart_dir, 'optimizer.pt')):
         with open(os.path.join(args.restart_dir, 'optimizer.pt'), 'rb') as f:
-            opt_state_dict = torch.load(f)
+            if torch.cuda.is_available():
+                opt_state_dict = torch.load(f)
+            else:
+                opt_state_dict = torch.load(f, map_location='cpu')
             optimizer.load_state_dict(opt_state_dict)
     else:
         print('Optimizer was not saved. Start from scratch.')
@@ -555,7 +558,8 @@ def train():
         if train_step == args.pretrain_steps and (args.pretrain_steps - args.start_train_steps) > 4000:
             print("You are using pre-training, which has completed :-)")
             model.save_weights(args.work_dir, f"pretrain_{train_step}_{args.name}")
-            torch.cuda.empty_cache()
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
 
         if train_step == args.max_step:
             break

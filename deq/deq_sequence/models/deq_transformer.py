@@ -371,7 +371,8 @@ class DEQTransformerLM(nn.Module):
                     if self.hook is not None:
                         # To avoid infinite loop
                         self.hook.remove()
-                        torch.cuda.synchronize()
+                        if torch.cuda.is_available():
+                            torch.cuda.synchronize()
                     new_grad = self.b_solver(lambda y: autograd.grad(new_z1s, z1s, y, retain_graph=True)[0] + grad, \
                                              torch.zeros_like(grad), threshold=b_thres)['result']
                     return new_grad

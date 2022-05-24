@@ -84,7 +84,8 @@ def main():
     dump_input = torch.rand(
         (1, 3, config.TRAIN.IMAGE_SIZE[1], config.TRAIN.IMAGE_SIZE[0])
     )
-    logger.info(get_model_summary(model.cuda(), dump_input.cuda()))
+    if torch.cuda.is_available():
+        logger.info(get_model_summary(model.cuda(), dump_input.cuda()))
 
     if config.TEST.MODEL_FILE:
         model_state_file = config.TEST.MODEL_FILE
@@ -93,7 +94,10 @@ def main():
                                         'final_state.pth')
     logger.info('=> loading model from {}'.format(model_state_file))
 
-    pretrained_dict = torch.load(model_state_file)
+    if torch.cuda.is_available():
+        pretrained_dict = torch.load(model_state_file)
+    else:
+        pretrained_dict = torch.load(model_state_file, map_location='cpu')
     model_dict = model.state_dict()
     pretrained_dict = {k[6:]: v for k, v in pretrained_dict.items()
                         if k[6:] in model_dict.keys()}      # To remove the "model." from state dict
@@ -103,8 +107,9 @@ def main():
     model_dict.update(pretrained_dict)
     model.load_state_dict(model_dict)
 
-    gpus = list(config.GPUS)
-    model = nn.DataParallel(model, device_ids=gpus).cuda()
+    if torch.cuda.is_available():
+        gpus = list(config.GPUS)
+        model = nn.DataParallel(model, device_ids=gpus).cuda()
 
     # prepare data
     test_size = (config.TEST.IMAGE_SIZE[1], config.TEST.IMAGE_SIZE[0])

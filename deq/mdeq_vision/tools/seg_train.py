@@ -89,7 +89,10 @@ def main():
     cudnn.enabled = config.CUDNN.ENABLED
     gpus = list(config.GPUS)
     distributed = len(gpus) > 1
-    device = torch.device('cuda:{}'.format(args.local_rank))
+    if torch.cuda.is_available():
+        device = torch.device('cuda:{}'.format(args.local_rank))
+    else:
+        device = torch.device('cpu')
 
     # build model
     model = eval('models.'+config.MODEL.NAME +
@@ -99,7 +102,10 @@ def main():
         model_state_file = config.TRAIN.MODEL_FILE
         logger.info(colored('=> loading model from {}'.format(model_state_file), 'red'))
 
-        pretrained_dict = torch.load(model_state_file)
+        if torch.cuda.is_available():
+            pretrained_dict = torch.load(model_state_file)
+        else:
+            pretrained_dict = torch.load(model_state_file, map_location='cpu')
         model_dict = model.state_dict()
         pretrained_dict = {k[6:]: v for k, v in pretrained_dict.items()
                            if k[6:] in model_dict.keys()}      # To remove the "model." from state dict
@@ -274,9 +280,11 @@ def main():
                   trainloader, optimizer, lr_scheduler, model, final_output_dir, writer_dict,
                   device)
 
-        torch.cuda.empty_cache()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
         valid_loss, mean_IoU, IoU_array = validate(config, testloader, model, lr_scheduler, epoch, writer_dict, device,
                                                    spectral_radius_mode=config.DEQ.SPECTRAL_RADIUS_MODE)
+        if torch.cuda.is_available():
         torch.cuda.empty_cache()
         writer_dict['writer'].flush()
 

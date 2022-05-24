@@ -257,7 +257,7 @@ def main():
         save_checkpoint({
             'epoch': epoch + 1,
             'model': config.MODEL.NAME,
-            'state_dict': model.module.state_dict(),
+            'state_dict': model.module.state_dict() if torch.cuda.is_available() else model.state_dict(),
             'perf': perf_indicator,
             'optimizer': optimizer.state_dict(),
             'lr_scheduler': lr_scheduler.state_dict(),
@@ -266,7 +266,8 @@ def main():
 
     final_model_state_file = os.path.join(final_output_dir, 'final_state.pth.tar')
     logger.info('saving final model state to {}'.format(final_model_state_file))
-    torch.save(model.module.state_dict(), final_model_state_file)
+    state_dict = model.module.state_dict() if torch.cuda.is_available() else model.state_dict()
+    torch.save(state_dict, final_model_state_file)
     if writer_dict['writer'] is not None:
         writer_dict['writer'].close()
 

@@ -195,7 +195,7 @@ class MDEQSegNet(MDEQNet):
                                         nn.BatchNorm2d(last_inp_channels, momentum=BN_MOMENTUM),
                                         nn.ReLU(inplace=True),
                                         nn.Conv2d(last_inp_channels, cfg.DATASET.NUM_CLASSES, cfg.MODEL.EXTRA.FINAL_CONV_KERNEL,
-                                                  stride=1, padding=1 if extra.FINAL_CONV_KERNEL == 3 else 0))
+                                                  stride=1, padding=1 if cfg.MODEL.EXTRA.FINAL_CONV_KERNEL == 3 else 0))
 
     def segment(self, y):
         """

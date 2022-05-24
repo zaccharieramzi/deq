@@ -87,11 +87,14 @@ def main():
     cudnn.benchmark = config.CUDNN.BENCHMARK
     cudnn.deterministic = config.CUDNN.DETERMINISTIC
     cudnn.enabled = config.CUDNN.ENABLED
-    gpus = list(config.GPUS)
-    distributed = len(gpus) > 1
+
     if torch.cuda.is_available():
+        gpus = list(config.GPUS)
+        distributed = len(gpus) > 1
         device = torch.device('cuda:{}'.format(args.local_rank))
     else:
+        distributed = False
+        gpus = [-1]
         device = torch.device('cpu')
 
     # build model

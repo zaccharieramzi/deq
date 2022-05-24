@@ -187,16 +187,21 @@ def main():
         train_dataset = datasets.CIFAR10(root=f'{config.DATASET.ROOT}', train=True, download=True, transform=transform_train)
         valid_dataset = datasets.CIFAR10(root=f'{config.DATASET.ROOT}', train=False, download=True, transform=transform_valid)
 
+    batch_size = config.TRAIN.BATCH_SIZE
+    test_batch_size = config.TEST.BATCH_SIZE
+    if torch.cuda.is_available():
+        batch_size = batch_size * len(config.GPUS)
+        test_batch_size = test_batch_size * len(config.GPUS)
     train_loader = torch.utils.data.DataLoader(
         train_dataset,
-        batch_size=config.TRAIN.BATCH_SIZE_PER_GPU*len(gpus),
+        batch_size=batch_size,
         shuffle=True,
         num_workers=config.WORKERS,
         pin_memory=True
     )
     valid_loader = torch.utils.data.DataLoader(
         valid_dataset,
-        batch_size=config.TEST.BATCH_SIZE_PER_GPU*len(gpus),
+        batch_size=test_batch_size,
         shuffle=False,
         num_workers=config.WORKERS,
         pin_memory=True

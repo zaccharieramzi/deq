@@ -18,5 +18,6 @@ runs/
 private_*
 *_old/
 log/
-DEQ-Sequence/LM*/
-MDEQ-Vision/output/
+deq/deq_sequence/LM*/
+deq/mdeq_vision/output/
+*.egg-info/

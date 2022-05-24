@@ -1,23 +1,21 @@
+import copy
+import os
+import sys
+
+import numpy as np
+from termcolor import colored
 import torch
 import torch.nn.functional as F
 import torch.nn as nn
 import torch.autograd as autograd
-import sys
-import copy
-import numpy as np
-from termcolor import colored
-import os
 
-sys.path.append('../../')
-
-from lib.optimizations import weight_norm, VariationalDropout, VariationalHidDropout, VariationalAttnDropout
-from lib.solvers import anderson, broyden
-from lib.jacobian import jac_loss_estimate, power_method
-
-from utils.adaptive_embedding import AdaptiveEmbedding
-from utils.positional_embedding import PositionalEmbedding
-from utils.proj_adaptive_softmax import ProjectedAdaptiveLogSoftmax
-from utils.log_uniform_sampler import LogUniformSampler, sample_logits
+from deq.lib.optimizations import weight_norm, VariationalDropout, VariationalHidDropout, VariationalAttnDropout
+from deq.lib.solvers import anderson, broyden
+from deq.lib.jacobian import jac_loss_estimate, power_method
+from deq.deq_sequence.utils.adaptive_embedding import AdaptiveEmbedding
+from deq.deq_sequence.utils.positional_embedding import PositionalEmbedding
+from deq.deq_sequence.utils.proj_adaptive_softmax import ProjectedAdaptiveLogSoftmax
+from deq.deq_sequence.utils.log_uniform_sampler import LogUniformSampler, sample_logits
 
 
 class WeightSharePositionwiseFF(nn.Module):
@@ -33,7 +31,7 @@ class WeightSharePositionwiseFF(nn.Module):
         self.drop2 = VariationalHidDropout(dropout=dropout, length_first=True)
 
         self.pre_lnorm = pre_lnorm
-    
+
     def wnorm(self):
         self.ff1_net, self.ff1_fn = weight_norm(module=self.ff1_net, names=['weight'], dim=0)
         self.ff2_net, self.ff2_fn = weight_norm(module=self.ff2_net, names=['weight'], dim=0)
@@ -62,7 +60,7 @@ class WeightSharePositionwiseFF(nn.Module):
 
 class WeightShareSelfAttention(nn.Module):
     # This is similar to the RelPartialLearnableMultiHeadAttn class in Transformer-XL
-    def __init__(self, d_model, n_head, d_head, dropout, dropatt, 
+    def __init__(self, d_model, n_head, d_head, dropout, dropatt,
                  pre_lnorm=False, local_size=None):
         super(WeightShareSelfAttention, self).__init__()
         self.d_model = d_model
@@ -81,7 +79,7 @@ class WeightShareSelfAttention(nn.Module):
 
         self.pre_lnorm = pre_lnorm
         self.local_size = local_size
-        
+
     def wnorm(self):
         self.qkv_net, self.qkv_fn = weight_norm(module=self.qkv_net, names=['weight'], dim=0)
         self.r_net, self.r_fn = weight_norm(module=self.r_net, names=['weight'], dim=0)
@@ -106,13 +104,13 @@ class WeightShareSelfAttention(nn.Module):
 
     def forward(self, z1ss, pos_emb, u1ss, mems=None):
         # Note: In this context, qlen means the length of the sequence; and mlen describes
-        #       the length of the padding. Their sum is klen. 
+        #       the length of the padding. Their sum is klen.
         bsz, d_model, qlen = z1ss.size()
         r_w_bias, r_r_bias = self.r_w_bias, self.r_r_bias
         n_head, d_head = self.n_head, self.d_head
         rlen = pos_emb.size(2)
-        
-        if mems is None: 
+
+        if mems is None:
             mems = torch.tensor([]).view(0,0,0)
         mlen = mems.size(2)
         cat = torch.cat([mems, z1ss], dim=-1)
@@ -144,7 +142,7 @@ class WeightShareSelfAttention(nn.Module):
 
         attn_score = AC + BD        # bsz x n_head x qlen x klen
         attn_score.mul_(self.scale)
-            
+
         # Compute attention probability
         # We apply a local mask, with local horizon size of mlen
         local_size = self.local_size or 1000
@@ -153,20 +151,20 @@ class WeightShareSelfAttention(nn.Module):
         if attn_mask is not None and attn_mask.any().item():
             attn_score = attn_score.float().masked_fill(
                     attn_mask[None], -float('inf')).type_as(attn_score)
-                
+
         attn_prob = F.softmax(attn_score, dim=-1)          # bsz x n_head x qlen x klen
         attn_prob = self.dropatt(attn_prob)
-            
+
         # Compute attention vector
         attn_vec = torch.einsum('bnij,bndj->bndi', (attn_prob, w_head_v))
-        
+
         # [bsz x d x qlen]
         attn_vec = attn_vec.contiguous().view(bsz, n_head*d_head, attn_vec.size(-1))
 
         # Linear projection
         attn_out = self.o_net(attn_vec)
         attn_out = self.drop(attn_out)
-        
+
         # Residual connection + layer normolization (if applicable)
         if self.pre_lnorm:
             out = attn_out + z1ss
@@ -182,10 +180,10 @@ class RelPartialLearnableDecoderLayer(nn.Module):
         pre_lnorm = kwargs.get('pre_lnorm')
         local_size = kwargs.get('local_size', None)
         dropatt = kwargs.get('dropatt', 0.0)
-        self.dec_attn = WeightShareSelfAttention(d_model, n_head, d_head, dropout=dropout, dropatt=dropatt, 
+        self.dec_attn = WeightShareSelfAttention(d_model, n_head, d_head, dropout=dropout, dropatt=dropatt,
                                                  pre_lnorm=pre_lnorm,  local_size=local_size)
         self.pos_ff = WeightSharePositionwiseFF(d_model, d_inner, dropout, pre_lnorm=pre_lnorm)
-    
+
     def wnorm(self):
         self.dec_attn.wnorm()
         self.pos_ff.wnorm()
@@ -206,7 +204,7 @@ class DEQTransformerLM(nn.Module):
     def __init__(self, n_token, n_layer, eval_n_layer, n_head, d_model, d_head, d_inner,
                  dropout, dropatt, tie_weights=True, d_embed=None, div_val=1,
                  tie_projs=[False], pre_lnorm=False, wnorm=False, tgt_len=None,
-                 mem_len=None, local_size=0, pretrain_steps=1, cutoffs=[], load='', 
+                 mem_len=None, local_size=0, pretrain_steps=1, cutoffs=[], load='',
                  f_solver=anderson, b_solver=None, stop_mode="rel", logging=None):
         super().__init__()
         self.n_token = n_token
@@ -268,7 +266,7 @@ class DEQTransformerLM(nn.Module):
 
     def load_weights(self, params_dict):
         self.load_state_dict(params_dict)
-   
+
     def save_weights(self, path, name='pretrained_deq'):
         with open(os.path.join(path, f'{name}.pth'), 'wb') as f:
             self.logging(f"Saving weight state dict at {name}.pth")
@@ -283,10 +281,10 @@ class DEQTransformerLM(nn.Module):
         with torch.no_grad():
             mems = [torch.empty(0), torch.empty(0)]
             return mems       # For z0 and u0
-            
+
     def _update_mems(self, z1s, us, z0, qlen, mlen):
         # does not deal with None
-        if self.mem_len <= 0: 
+        if self.mem_len <= 0:
             self.logging("_update_mems: Hmmmm... you shouldn't be here.")
             return None
 
@@ -317,7 +315,7 @@ class DEQTransformerLM(nn.Module):
         :return: tuple(output sequence, new memory, jac loss, spec. radius)
         """
         # Assume dec_inp has shape (qlen x bsz)
-        dec_inp = dec_inp.t()                              
+        dec_inp = dec_inp.t()
         bsz, qlen = dec_inp.size()
         word_emb = self.word_emb(dec_inp)
         word_emb = self.iodrop(word_emb, self.dropout)
@@ -362,7 +360,7 @@ class DEQTransformerLM(nn.Module):
                     z1s.requires_grad_()
                     new_z1s = self.func(z1s, *func_args)
                 _, sradius = power_method(new_z1s, z1s, n_iters=150)
-            
+
             if self.training:
                 z1s.requires_grad_()
                 new_z1s = self.func(z1s, *func_args)
@@ -388,7 +386,7 @@ class DEQTransformerLM(nn.Module):
         # So, have to initialize size(0) mems inside the model forward.
         # Moreover, have to return new_mems to allow nn.DataParallel to piece
         # them together.
-        if not mems: 
+        if not mems:
             mems = self.init_mems()
         else:
             for i in range(len(mems)):
@@ -396,7 +394,7 @@ class DEQTransformerLM(nn.Module):
         qlen, bsz = data.size()
         mlen = 0 if mems[0].nelement() == 0 else mems[0].size(2)
         klen = mlen + qlen
-    
+
         # Reset dropout in self.func
         self.pos_drop.reset_mask(1, self.d_model, klen)
         self.func.reset(bsz, qlen, klen)
@@ -407,8 +405,8 @@ class DEQTransformerLM(nn.Module):
         compute_jac_loss = kwargs.get('compute_jac_loss', True)
         sradius_mode = kwargs.get('spectral_radius_mode', False)
         writer = kwargs.get('writer', None)
-        hidden, new_mems, jac_loss, sradius = self._forward(data, mems=mems, f_thres=f_thres, b_thres=b_thres, train_step=train_step, 
-                                                            compute_jac_loss=compute_jac_loss, spectral_radius_mode=sradius_mode, 
+        hidden, new_mems, jac_loss, sradius = self._forward(data, mems=mems, f_thres=f_thres, b_thres=b_thres, train_step=train_step,
+                                                            compute_jac_loss=compute_jac_loss, spectral_radius_mode=sradius_mode,
                                                             writer=writer)
         pred_hid = hidden[-tgt_len:]
         loss = self.crit(pred_hid.view(-1, pred_hid.size(-1)), target.contiguous().view(-1))

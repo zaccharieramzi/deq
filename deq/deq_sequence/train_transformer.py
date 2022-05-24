@@ -208,7 +208,7 @@ if args.name == "N/A" and not args.debug:
     raise ValueError("Please give a name to your run!")
 print(f"Experiment name: {args.name}")
 logging = create_exp_dir(args.work_dir,
-    scripts_to_save=['train_transformer.py', 'models/deq_transformer.py', '../lib/solvers.py'], debug=args.debug)
+    scripts_to_save=None, debug=args.debug)
 
 # Set the random seed manually for reproducibility.
 np.random.seed(args.seed)

@@ -19,18 +19,17 @@ import torch.utils.data.distributed
 import torchvision.datasets as datasets
 import torchvision.transforms as transforms
 
-import _init_paths
-import models
-from config import config
-from config import update_config
-from core.cls_function import validate
-from utils.modelsummary import get_model_summary
-from utils.utils import create_logger
+from deq.mdeq_vision import models
+from deq.mdeq_vision.config import config
+from deq.mdeq_vision.config import update_config
+from deq.mdeq_vision.core.cls_function import validate
+from deq.mdeq_vision.utils.modelsummary import get_model_summary
+from deq.mdeq_vision.utils.utils import create_logger
 
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Train keypoints network')
-    
+
     parser.add_argument('--cfg',
                         help='experiment configure file name',
                         required=True,
@@ -110,7 +109,7 @@ def main():
     else:
         assert dataset_name == "cifar10", "Only CIFAR-10 and ImageNet are supported at this phase"
         classes = ('plane', 'car', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship', 'truck')  # For reference
-        
+
         normalize = transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))
         transform_valid = transforms.Compose([
             transforms.ToTensor(),

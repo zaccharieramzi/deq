@@ -13,6 +13,7 @@ from pathlib import Path
 
 import numpy as np
 
+from termcolor import colored
 import torch
 import torch.nn as nn
 import torch.backends.cudnn as cudnn
@@ -20,20 +21,18 @@ import torch.optim
 from torch.utils.data.distributed import DistributedSampler
 from torch.utils.tensorboard import SummaryWriter
 
-import _init_paths
-import models
-import datasets
-from config import config
-from config import update_config
-from core.seg_criterion import CrossEntropy, OhemCrossEntropy
-from core.seg_function import train, validate
-from utils.modelsummary import get_model_summary
-from utils.utils import create_logger, FullModel, get_rank, get_optimizer
-from termcolor import colored
+from deq.mdeq_vision import models
+from deq.mdeq_vision import datasets
+from deq.mdeq_vision.config import config
+from deq.mdeq_vision.config import update_config
+from deq.mdeq_vision.core.seg_criterion import CrossEntropy, OhemCrossEntropy
+from deq.mdeq_vision.core.seg_function import train, validate
+from deq.mdeq_vision.utils.modelsummary import get_model_summary
+from deq.mdeq_vision.utils.utils import create_logger, FullModel, get_rank, get_optimizer
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Train segmentation network')
-    
+
     parser.add_argument('--cfg',
                         help='experiment configure file name',
                         required=True,
@@ -71,7 +70,7 @@ def parse_args():
 
 def main():
     args = parse_args()
-    
+
     logger, final_output_dir, tb_log_dir = create_logger(
         config, args.cfg, 'train')
 
@@ -95,18 +94,18 @@ def main():
     # build model
     model = eval('models.'+config.MODEL.NAME +
                  '.get_seg_net')(config)
-    
+
     if config.TRAIN.MODEL_FILE:
         model_state_file = config.TRAIN.MODEL_FILE
         logger.info(colored('=> loading model from {}'.format(model_state_file), 'red'))
-        
+
         pretrained_dict = torch.load(model_state_file)
         model_dict = model.state_dict()
         pretrained_dict = {k[6:]: v for k, v in pretrained_dict.items()
                            if k[6:] in model_dict.keys()}      # To remove the "model." from state dict
         model_dict.update(pretrained_dict)
         model.load_state_dict(model_dict)
-    
+
     if args.local_rank == 0:
         # copy model file
         this_dir = os.path.dirname(__file__)
@@ -135,7 +134,7 @@ def main():
                         crop_size=crop_size,
                         downsample_rate=config.TRAIN.DOWNSAMPLERATE,
                         scale_factor=config.TRAIN.SCALE_FACTOR)
-    
+
     if distributed:
         train_sampler = DistributedSampler(train_dataset)
     else:
@@ -204,7 +203,7 @@ def main():
         num_workers=config.WORKERS,
         pin_memory=True,
         sampler=test_sampler)
-    
+
     # criterion
     if config.LOSS.USE_OHEM:
         criterion = OhemCrossEntropy(ignore_label=config.TRAIN.IGNORE_LABEL,
@@ -233,7 +232,7 @@ def main():
     if config.TRAIN.RESUME:
         model_state_file = os.path.join(final_output_dir, 'checkpoint.pth.tar')
         if os.path.isfile(model_state_file):
-            checkpoint = torch.load(model_state_file, 
+            checkpoint = torch.load(model_state_file,
                         map_location=lambda storage, loc: storage)
             best_mIoU = checkpoint['best_mIoU']
             last_epoch = checkpoint['epoch']
@@ -241,13 +240,13 @@ def main():
             writer_dict['valid_global_steps'] = checkpoint['writer_dict']['valid_global_steps']
             model.module.load_state_dict(checkpoint['state_dict'])
             optimizer.load_state_dict(checkpoint['optimizer'])
-            
+
             if 'lr_scheduler' in checkpoint:
                 lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
                     optimizer, num_iters, eta_min=1e-6)
                 lr_scheduler.load_state_dict(checkpoint['lr_scheduler'])
             logger.info("=> loaded checkpoint (epoch {})".format(checkpoint['epoch']))
-    
+
     if lr_scheduler is None:
         if config.TRAIN.LR_SCHEDULER == 'cosine':
             lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
@@ -257,26 +256,26 @@ def main():
             lr_scheduler = None
 
     start = timeit.default_timer()
-    
+
     for epoch in range(last_epoch, end_epoch):
-        
+
         if distributed:
             train_sampler.set_epoch(epoch)
         if epoch >= config.TRAIN.END_EPOCH:
             # Extra training dataset (shouldn't matter to DEQ models... yet)
-            train(config, epoch-config.TRAIN.END_EPOCH, 
-                  config.TRAIN.EXTRA_EPOCH, epoch_iters, 
-                  config.TRAIN.EXTRA_LR, extra_iters, 
-                  extra_trainloader, optimizer, lr_scheduler, model, 
+            train(config, epoch-config.TRAIN.END_EPOCH,
+                  config.TRAIN.EXTRA_EPOCH, epoch_iters,
+                  config.TRAIN.EXTRA_LR, extra_iters,
+                  extra_trainloader, optimizer, lr_scheduler, model,
                   final_output_dir, writer_dict, device)
         else:
-            train(config, epoch, config.TRAIN.END_EPOCH, 
+            train(config, epoch, config.TRAIN.END_EPOCH,
                   epoch_iters, config.TRAIN.LR, num_iters,
                   trainloader, optimizer, lr_scheduler, model, final_output_dir, writer_dict,
                   device)
-            
+
         torch.cuda.empty_cache()
-        valid_loss, mean_IoU, IoU_array = validate(config, testloader, model, lr_scheduler, epoch, writer_dict, device, 
+        valid_loss, mean_IoU, IoU_array = validate(config, testloader, model, lr_scheduler, epoch, writer_dict, device,
                                                    spectral_radius_mode=config.DEQ.SPECTRAL_RADIUS_MODE)
         torch.cuda.empty_cache()
         writer_dict['writer'].flush()
@@ -304,7 +303,7 @@ def main():
                 logger.info('saving final model state to {}'.format(final_model_state_file))
                 torch.save(model.module.state_dict(), final_model_state_file)
                 writer_dict['writer'].close()
-                
+
                 end = timeit.default_timer()
                 logger.info('Hours: %d' % np.int((end-start)/3600))
                 logger.info('Done')

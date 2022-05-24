@@ -10,6 +10,7 @@ import pprint
 import shutil
 import sys
 
+from termcolor import colored
 import torch
 import torch.nn as nn
 import torch.nn.parallel
@@ -21,21 +22,19 @@ import torchvision.datasets as datasets
 import torchvision.transforms as transforms
 from torch.utils.tensorboard import SummaryWriter
 
-import _init_paths
-import models
-from config import config
-from config import update_config
-from core.cls_function import train, validate
-from utils.modelsummary import get_model_summary
-from utils.utils import get_optimizer
-from utils.utils import save_checkpoint
-from utils.utils import create_logger
-from termcolor import colored
+from deq.mdeq_vision.lib import models
+from deq.mdeq_vision.lib.config import config
+from deq.mdeq_vision.lib.config import update_config
+from deq.mdeq_vision.lib.core.cls_function import train, validate
+from deq.mdeq_vision.lib.utils.modelsummary import get_model_summary
+from deq.mdeq_vision.lib.utils.utils import get_optimizer
+from deq.mdeq_vision.lib.utils.utils import save_checkpoint
+from deq.mdeq_vision.lib.utils.utils import create_logger
 
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Train classification network')
-    
+
     parser.add_argument('--cfg',
                         help='experiment configure file name',
                         required=True,
@@ -87,9 +86,9 @@ def main():
     cudnn.benchmark = config.CUDNN.BENCHMARK
     torch.backends.cudnn.deterministic = config.CUDNN.DETERMINISTIC
     torch.backends.cudnn.enabled = config.CUDNN.ENABLED
-    
+
     model = eval('models.'+config.MODEL.NAME+'.get_cls_net')(config).cuda()
-    
+
     if config.TRAIN.MODEL_FILE:
         model.load_state_dict(torch.load(config.TRAIN.MODEL_FILE))
         logger.info(colored('=> loading model from {}'.format(config.TRAIN.MODEL_FILE), 'red'))
@@ -126,18 +125,18 @@ def main():
             last_epoch = checkpoint['epoch']
             best_perf = checkpoint['perf']
             model.module.load_state_dict(checkpoint['state_dict'])
-            
+
             # Update weight decay if needed
             checkpoint['optimizer']['param_groups'][0]['weight_decay'] = config.TRAIN.WD
             optimizer.load_state_dict(checkpoint['optimizer'])
-            
+
             if 'lr_scheduler' in checkpoint:
-                lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, 1e5, 
+                lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, 1e5,
                                   last_epoch=checkpoint['lr_scheduler']['last_epoch'])
                 lr_scheduler.load_state_dict(checkpoint['lr_scheduler'])
             logger.info("=> loaded checkpoint (epoch {})".format(checkpoint['epoch']))
             best_model = True
-   
+
     # Data loading code
     dataset_name = config.DATASET.DATASET
 
@@ -162,7 +161,7 @@ def main():
     else:
         assert dataset_name == "cifar10", "Only CIFAR-10 and ImageNet are supported at this phase"
         classes = ('plane', 'car', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship', 'truck')  # For reference
-        
+
         normalize = transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))
         augment_list = [transforms.RandomCrop(32, padding=4), transforms.RandomHorizontalFlip()] if config.DATASET.AUGMENT else []
         transform_train = transforms.Compose(augment_list + [
@@ -175,7 +174,7 @@ def main():
         ])
         train_dataset = datasets.CIFAR10(root=f'{config.DATASET.ROOT}', train=True, download=True, transform=transform_train)
         valid_dataset = datasets.CIFAR10(root=f'{config.DATASET.ROOT}', train=False, download=True, transform=transform_valid)
-        
+
     train_loader = torch.utils.data.DataLoader(
         train_dataset,
         batch_size=config.TRAIN.BATCH_SIZE_PER_GPU*len(gpus),
@@ -190,7 +189,7 @@ def main():
         num_workers=config.WORKERS,
         pin_memory=True
     )
-    
+
     # Learning rate scheduler
     if lr_scheduler is None:
         if config.TRAIN.LR_SCHEDULER != 'step':
@@ -204,7 +203,7 @@ def main():
             lr_scheduler = torch.optim.lr_scheduler.StepLR(
                 optimizer, config.TRAIN.LR_STEP, config.TRAIN.LR_FACTOR,
                 last_epoch-1)
-    
+
     if best_model:
         # Loaded a checkpoint
         writer_dict['train_global_steps'] = last_epoch * len(train_loader)
@@ -214,15 +213,15 @@ def main():
         topk = (1,5) if dataset_name == 'imagenet' else (1,)
         if config.TRAIN.LR_SCHEDULER == 'step':
             lr_scheduler.step()
-            
+
         # train for one epoch
         train(config, train_loader, model, criterion, optimizer, lr_scheduler, epoch,
               final_output_dir, tb_log_dir, writer_dict, topk=topk)
         torch.cuda.empty_cache()
-        
+
         # evaluate on validation set
         perf_indicator = validate(config, valid_loader, model, criterion, lr_scheduler, epoch,
-                                  final_output_dir, tb_log_dir, writer_dict, 
+                                  final_output_dir, tb_log_dir, writer_dict,
                                   topk=topk, spectral_radius_mode=config.DEQ.SPECTRAL_RADIUS_MODE)
 
         torch.cuda.empty_cache()

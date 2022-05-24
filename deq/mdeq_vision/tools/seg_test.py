@@ -17,13 +17,13 @@ import torch
 import torch.nn as nn
 import torch.backends.cudnn as cudnn
 
-from deq.mdeq_vision import models
-from deq.mdeq_vision import datasets
-from deq.mdeq_vision.config import config
-from deq.mdeq_vision.config import update_config
-from deq.mdeq_vision.core.seg_function import testval, test
-from deq.mdeq_vision.utils.modelsummary import get_model_summary
-from deq.mdeq_vision.utils.utils import create_logger
+from deq.mdeq_vision.lib import models
+from deq.mdeq_vision.lib import datasets
+from deq.mdeq_vision.lib.config import config
+from deq.mdeq_vision.lib.config import update_config
+from deq.mdeq_vision.lib.core.seg_function import testval, test
+from deq.mdeq_vision.lib.utils.modelsummary import get_model_summary
+from deq.mdeq_vision.lib.utils.utils import create_logger
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Train segmentation network')

@@ -19,12 +19,12 @@ import torch.utils.data.distributed
 import torchvision.datasets as datasets
 import torchvision.transforms as transforms
 
-from deq.mdeq_vision import models
-from deq.mdeq_vision.config import config
-from deq.mdeq_vision.config import update_config
-from deq.mdeq_vision.core.cls_function import validate
-from deq.mdeq_vision.utils.modelsummary import get_model_summary
-from deq.mdeq_vision.utils.utils import create_logger
+from deq.mdeq_vision.lib import models
+from deq.mdeq_vision.lib.config import config
+from deq.mdeq_vision.lib.config import update_config
+from deq.mdeq_vision.lib.core.cls_function import validate
+from deq.mdeq_vision.lib.utils.modelsummary import get_model_summary
+from deq.mdeq_vision.lib.utils.utils import create_logger
 
 
 def parse_args():

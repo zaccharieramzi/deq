@@ -21,14 +21,14 @@ import torch.optim
 from torch.utils.data.distributed import DistributedSampler
 from torch.utils.tensorboard import SummaryWriter
 
-from deq.mdeq_vision import models
-from deq.mdeq_vision import datasets
-from deq.mdeq_vision.config import config
-from deq.mdeq_vision.config import update_config
-from deq.mdeq_vision.core.seg_criterion import CrossEntropy, OhemCrossEntropy
-from deq.mdeq_vision.core.seg_function import train, validate
-from deq.mdeq_vision.utils.modelsummary import get_model_summary
-from deq.mdeq_vision.utils.utils import create_logger, FullModel, get_rank, get_optimizer
+from deq.mdeq_vision.lib import models
+from deq.mdeq_vision.lib import datasets
+from deq.mdeq_vision.lib.config import config
+from deq.mdeq_vision.lib.config import update_config
+from deq.mdeq_vision.lib.core.seg_criterion import CrossEntropy, OhemCrossEntropy
+from deq.mdeq_vision.lib.core.seg_function import train, validate
+from deq.mdeq_vision.lib.utils.modelsummary import get_model_summary
+from deq.mdeq_vision.lib.utils.utils import create_logger, FullModel, get_rank, get_optimizer
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Train segmentation network')

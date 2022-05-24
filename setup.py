@@ -8,7 +8,7 @@ with open('requirements.txt') as open_file:
     install_requires = open_file.read()
 
 setuptools.setup(
-    name="deqe",
+    name="deq",
     version="0.0.1",
     author="Shaojie Bai",
     author_email="shaojieb@cs.cmu.edu",

@@ -5,6 +5,7 @@ from __future__ import division
 from __future__ import print_function
 
 import argparse
+from cgi import test
 import os
 import sys
 import shutil
@@ -126,9 +127,12 @@ def main():
         ])
         valid_dataset = datasets.CIFAR10(root=f'{config.DATASET.ROOT}', train=False, download=True, transform=transform_valid)
 
+    test_batch_size = config.TEST.BATCH_SIZE_PER_GPU
+    if torch.cuda.is_available():
+        test_batch_size *= len(gpus)
     valid_loader = torch.utils.data.DataLoader(
         valid_dataset,
-        batch_size=config.TEST.BATCH_SIZE_PER_GPU*len(gpus),
+        batch_size=test_batch_size,
         shuffle=False,
         num_workers=config.WORKERS,
         pin_memory=True

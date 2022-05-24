@@ -110,6 +110,8 @@ def main():
     if torch.cuda.is_available():
         gpus = list(config.GPUS)
         model = nn.DataParallel(model, device_ids=gpus).cuda()
+    else:
+        gpus = [-1]
 
     # prepare data
     test_size = (config.TEST.IMAGE_SIZE[1], config.TEST.IMAGE_SIZE[0])

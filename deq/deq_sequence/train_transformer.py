@@ -1,25 +1,23 @@
 # coding: utf-8
 import argparse
-import time
+import itertools
 import math
 import os, sys
-import itertools
-import numpy as np
 import random
+import time
 
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
-
-sys.path.append('../')
-
-from data_utils import get_lm_corpus
-from models.deq_transformer import DEQTransformerLM
-from lib.solvers import anderson, broyden
-from lib import radam
-from utils.exp_utils import create_exp_dir
-from utils.data_parallel import BalancedDataParallel
 from torch.utils.tensorboard import SummaryWriter
+
+from deq.deq_sequence.data_utils import get_lm_corpus
+from deq.deq_sequence.models.deq_transformer import DEQTransformerLM
+from deq.lib.solvers import anderson, broyden
+from deq.lib import radam
+from deq.deq_sequence.utils.exp_utils import create_exp_dir
+from deq.deq_sequence.utils.data_parallel import BalancedDataParallel
 
 
 parser = argparse.ArgumentParser(description='PyTorch DEQ Sequence Model')
@@ -114,7 +112,7 @@ parser.add_argument('--stop_mode', type=str, default="rel",
                     choices=['abs', 'rel'],
                     help='stop criterion absolute or relative')
 parser.add_argument('--rand_f_thres_delta', type=int, default=0,
-                    help='use (f_thres + U(-delta, 0)) for forward threshold (delta default to 0)')    
+                    help='use (f_thres + U(-delta, 0)) for forward threshold (delta default to 0)')
 parser.add_argument('--f_thres', type=int, default=40,
                     help='forward pass Broyden threshold')
 parser.add_argument('--b_thres', type=int, default=40,
@@ -193,7 +191,7 @@ args.pretrain_steps += args.start_train_steps
 assert args.mem_len > 0, "For now you must set mem_len > 0 when using deq"
 args.work_dir += "deq"
 args.cuda = torch.cuda.is_available()
-    
+
 if args.d_embed < 0:
     args.d_embed = args.d_model
 
@@ -370,9 +368,9 @@ if args.restart:
         print('Optimizer was not saved. Start from scratch.')
 
 if args.start_train_steps > 0 and not args.restart:
-    # E.g., When you want to directly load a state_dict (e.g., trained on another machine), 
+    # E.g., When you want to directly load a state_dict (e.g., trained on another machine),
     #       You may want to manually adjust the optimizer's steps. On command line, you
-    #       should run `bash ... --load [PATH] --start_train_steps N --pretrain_steps 0` 
+    #       should run `bash ... --load [PATH] --start_train_steps N --pretrain_steps 0`
     #       in order to start the training from step N
     diff_from_warmup = args.start_train_steps - args.warmup_step
     # Speed up the scheduler
@@ -415,7 +413,7 @@ def evaluate(eval_iter):
         for i, (data, target, seq_len) in enumerate(eval_iter):
             if 0 < args.max_eval_steps <= i:
                 break
-            ret = para_model(data, target, mems, train_step=train_step, f_thres=args.f_thres, 
+            ret = para_model(data, target, mems, train_step=train_step, f_thres=args.f_thres,
                              b_thres=args.b_thres, compute_jac_loss=False,
                              spectral_radius_mode=args.spectral_radius_mode, writer=writer)
             loss, _, sradius, mems = ret[0], ret[1], ret[2], ret[3:]
@@ -471,7 +469,7 @@ def train():
                 else:
                     loss.backward()
                 train_loss += loss.float().item()
-                
+
         else:
             # Mode 2: Normal training with one batch per iteration
             ret = para_model(data, target, mems, train_step=train_step, f_thres=f_thres, b_thres=b_thres,
@@ -485,7 +483,7 @@ def train():
             else:
                 loss.backward()
             train_loss += loss.float().item()
-            
+
         torch.nn.utils.clip_grad_norm_(model.parameters(), args.clip)
         optimizer.step()
         train_step += 1
@@ -558,7 +556,7 @@ def train():
             print("You are using pre-training, which has completed :-)")
             model.save_weights(args.work_dir, f"pretrain_{train_step}_{args.name}")
             torch.cuda.empty_cache()
-            
+
         if train_step == args.max_step:
             break
 
@@ -583,7 +581,7 @@ if args.eval:
     logging('=' * 100)
     logging('| End of training | valid loss {:5.2f} | valid ppl {:9.3f}'.format(valid_loss, math.exp(valid_loss)))
     logging('=' * 100)
-        
+
     test_loss = evaluate(te_iter)
     logging('=' * 100)
     logging('| End of training | test loss {:5.2f} | test ppl {:9.3f}'.format(test_loss, math.exp(test_loss)))

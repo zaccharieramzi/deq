@@ -1,11 +1,12 @@
-import os, sys
-import glob
-
 from collections import Counter, OrderedDict
+import glob
+import os, sys
+
 import numpy as np
 import torch
 
-from utils.vocabulary import Vocab
+from deq.deq_sequence.utils.vocabulary import Vocab
+
 
 """
 Based on the implementation in the Transformer-XL repo: https://github.com/kimiyoung/transformer-xl

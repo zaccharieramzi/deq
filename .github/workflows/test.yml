@@ -36,5 +36,7 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install .
-    - name: Test
+    - name: Test CLS
       run: bash tests/test_cls_train.sh
+    - name: Test Transformer
+      run: bash tests/test_transformer_train.sh

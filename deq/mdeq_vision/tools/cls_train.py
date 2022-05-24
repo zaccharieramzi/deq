@@ -59,6 +59,11 @@ def parse_args():
                         help='percentage of training data to use',
                         type=float,
                         default=1.0)
+    parser.add_argument('--save_at',
+                        help='''save checkpoint at certain epochs,
+                        comma-separated''',
+                        type=list,
+                        default=[])
     parser.add_argument('opts',
                         help="Modify config options using the command-line",
                         default=None,
@@ -254,15 +259,19 @@ def main():
             best_model = False
 
         logger.info('=> saving checkpoint to {}'.format(final_output_dir))
-        save_checkpoint({
-            'epoch': epoch + 1,
-            'model': config.MODEL.NAME,
-            'state_dict': model.module.state_dict() if torch.cuda.is_available() else model.state_dict(),
-            'perf': perf_indicator,
-            'optimizer': optimizer.state_dict(),
-            'lr_scheduler': lr_scheduler.state_dict(),
-            'train_global_steps': writer_dict['train_global_steps'],
-        }, best_model, final_output_dir, filename='checkpoint.pth.tar')
+        checkpoint_files = ['checkpoint.pth.tar']
+        if epoch in args.save_at:
+            checkpoint_files.append(f'checkpoint_{epoch}.pth.tar')
+        for checkpoint_file in checkpoint_files:
+            save_checkpoint({
+                'epoch': epoch + 1,
+                'model': config.MODEL.NAME,
+                'state_dict': model.module.state_dict() if torch.cuda.is_available() else model.state_dict(),
+                'perf': perf_indicator,
+                'optimizer': optimizer.state_dict(),
+                'lr_scheduler': lr_scheduler.state_dict(),
+                'train_global_steps': writer_dict['train_global_steps'],
+            }, best_model, final_output_dir, filename=checkpoint_file)
 
     final_model_state_file = os.path.join(final_output_dir, 'final_state.pth.tar')
     logger.info('saving final model state to {}'.format(final_model_state_file))

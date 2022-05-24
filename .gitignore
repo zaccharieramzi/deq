@@ -21,3 +21,4 @@ log/
 deq/deq_sequence/LM*/
 deq/mdeq_vision/output/
 *.egg-info/
+output/

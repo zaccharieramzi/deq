@@ -288,7 +288,7 @@ def main():
         valid_loss, mean_IoU, IoU_array = validate(config, testloader, model, lr_scheduler, epoch, writer_dict, device,
                                                    spectral_radius_mode=config.DEQ.SPECTRAL_RADIUS_MODE)
         if torch.cuda.is_available():
-        torch.cuda.empty_cache()
+            torch.cuda.empty_cache()
         writer_dict['writer'].flush()
 
         if args.local_rank == 0:

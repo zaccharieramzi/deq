@@ -11,8 +11,8 @@ python train_transformer.py \
         --div_val 4 \
         --n_layer 2 \
         --eval_n_layer 2 \
-        --d_embed 10 \
-        --d_model 10 \
+        --d_embed 20 \
+        --d_model 20 \
         --n_head 2 \
         --d_head 10 \
         --d_inner 100 \

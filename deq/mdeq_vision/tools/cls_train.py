@@ -72,9 +72,10 @@ def parse_args():
 def main():
     torch.manual_seed(42)
     args = parse_args()
-    print(colored("Setting default tensor type to cuda.FloatTensor", "cyan"))
     torch.multiprocessing.set_start_method('spawn')
-    torch.set_default_tensor_type('torch.cuda.FloatTensor')
+    if torch.cuda.is_available():
+        print(colored("Setting default tensor type to cuda.FloatTensor", "cyan"))
+        torch.set_default_tensor_type('torch.cuda.FloatTensor')
 
     logger, final_output_dir, tb_log_dir = create_logger(
         config, args.cfg, 'train')
@@ -87,10 +88,18 @@ def main():
     torch.backends.cudnn.deterministic = config.CUDNN.DETERMINISTIC
     torch.backends.cudnn.enabled = config.CUDNN.ENABLED
 
-    model = eval('models.'+config.MODEL.NAME+'.get_cls_net')(config).cuda()
+    model = eval('models.'+config.MODEL.NAME+'.get_cls_net')(config)
+    if torch.cuda.is_available():
+        model = model.cuda()
 
     if config.TRAIN.MODEL_FILE:
-        model.load_state_dict(torch.load(config.TRAIN.MODEL_FILE))
+        if torch.cuda.is_available():
+            model.load_state_dict(torch.load(config.TRAIN.MODEL_FILE))
+        else:
+            model.load_state_dict(torch.load(
+                config.TRAIN.MODEL_FILE,
+                map_location=torch.device('cpu'),
+            ))
         logger.info(colored('=> loading model from {}'.format(config.TRAIN.MODEL_FILE), 'red'))
 
     # copy model file
@@ -106,12 +115,15 @@ def main():
         'valid_global_steps': 0,
     }
 
-    gpus = list(config.GPUS)
-    model = nn.DataParallel(model, device_ids=gpus).cuda()
+    if torch.cuda.is_available():
+        gpus = list(config.GPUS)
+        model = nn.DataParallel(model, device_ids=gpus).cuda()
     print("Finished constructing model!")
 
     # define loss function (criterion) and optimizer
-    criterion = nn.CrossEntropyLoss().cuda()
+    criterion = nn.CrossEntropyLoss()
+    if torch.cuda.is_available():
+        criterion = criterion.cuda()
     optimizer = get_optimizer(config, model)
     lr_scheduler = None
 
@@ -217,14 +229,16 @@ def main():
         # train for one epoch
         train(config, train_loader, model, criterion, optimizer, lr_scheduler, epoch,
               final_output_dir, tb_log_dir, writer_dict, topk=topk)
-        torch.cuda.empty_cache()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
 
         # evaluate on validation set
         perf_indicator = validate(config, valid_loader, model, criterion, lr_scheduler, epoch,
                                   final_output_dir, tb_log_dir, writer_dict,
                                   topk=topk, spectral_radius_mode=config.DEQ.SPECTRAL_RADIUS_MODE)
 
-        torch.cuda.empty_cache()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
         if writer_dict['writer'] is not None:
             writer_dict['writer'].flush()
 

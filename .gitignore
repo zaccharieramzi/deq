@@ -21,3 +21,4 @@ log/
 **/LM*/
 **/output/
 *.egg-info/
+build/

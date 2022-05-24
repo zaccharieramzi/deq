@@ -1,5 +1,5 @@
 torch>=1.10
-torchvision
+torchvision>=0.4.0
 yacs
 termcolor
 opencv-python

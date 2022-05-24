@@ -1,4 +1,5 @@
 #!/bin/bash
+set -e
 
 cd deq/mdeq_vision
 

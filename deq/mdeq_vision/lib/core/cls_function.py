@@ -4,23 +4,22 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import time
 import logging
-import numpy as np
-import sys
-
-import torch
-
-from core.cls_evaluate import accuracy
-sys.path.append("../")
-from utils.utils import save_checkpoint, AverageMeter
 import random
+import sys
+import time
+
+import numpy as np
+import torch
 from tqdm import tqdm
+
+from deq.mdeq_vision.lib.core.cls_evaluate import accuracy
+from deq.mdeq_vision.lib.utils.utils import save_checkpoint, AverageMeter
 
 
 logger = logging.getLogger(__name__)
 
-        
+
 def train(config, train_loader, model, criterion, optimizer, lr_scheduler, epoch,
           output_dir, tb_log_dir, writer_dict=None, topk=(1,5)):
     batch_time = AverageMeter()
@@ -42,7 +41,7 @@ def train(config, train_loader, model, criterion, optimizer, lr_scheduler, epoch
     for i, (input, target) in enumerate(train_loader):
         # train on partial training data
         if i >= effec_batch_num: break
-            
+
         # measure data loading time
         data_time.update(time.time() - end)
 
@@ -63,7 +62,7 @@ def train(config, train_loader, model, criterion, optimizer, lr_scheduler, epoch
         delta_f_thres = torch.randint(-config.DEQ.RAND_F_THRES_DELTA,2,[]).item() if (config.DEQ.RAND_F_THRES_DELTA > 0 and compute_jac_loss) else 0
         f_thres = config.DEQ.F_THRES + delta_f_thres
         b_thres = config.DEQ.B_THRES
-        output, jac_loss, _ = model(input, train_step=(lr_scheduler._step_count-1), 
+        output, jac_loss, _ = model(input, train_step=(lr_scheduler._step_count-1),
                                     compute_jac_loss=compute_jac_loss,
                                     f_thres=f_thres, b_thres=b_thres, writer=writer)
         target = target.cuda(non_blocking=True)
@@ -109,10 +108,10 @@ def train(config, train_loader, model, criterion, optimizer, lr_scheduler, epoch
             if 5 in topk:
                 msg += 'Acc@5 {top5.avg:.3f}\t'.format(top5=top5)
             logger.info(msg)
-            
+
         global_steps += 1
         writer_dict['train_global_steps'] = global_steps
-        
+
         if factor > 0 and global_steps > config.TRAIN.PRETRAIN_STEPS and (deq_steps+1) % update_freq == 0:
              logger.info(f'Note: Adding 0.1 to Jacobian regularization weight.')
 
@@ -136,7 +135,7 @@ def validate(config, val_loader, model, criterion, lr_scheduler, epoch, output_d
         # tk0 = tqdm(enumerate(val_loader), total=len(val_loader), position=0, leave=True)
         for i, (input, target) in enumerate(val_loader):
             # compute output
-            output, _, sradius = model(input, 
+            output, _, sradius = model(input,
                                  train_step=(-1 if epoch < 0 else (lr_scheduler._step_count-1)),
                                  compute_jac_loss=False, spectral_radius_mode=spectral_radius_mode,
                                  writer=writer)
@@ -158,7 +157,7 @@ def validate(config, val_loader, model, criterion, lr_scheduler, epoch, output_d
             end = time.time()
 
     if spectral_radius_mode:
-        logger.info(f"Spectral radius over validation set: {sradiuses.avg}")    
+        logger.info(f"Spectral radius over validation set: {sradiuses.avg}")
     msg = 'Test: Time {batch_time.avg:.3f}\t' \
             'Loss {loss.avg:.4f}\t' \
             'Acc@1 {top1.avg:.3f}\t'.format(

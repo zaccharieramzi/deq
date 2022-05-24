@@ -2,30 +2,28 @@
 
 import logging
 import os
-import time
-import numpy as np
 import sys
+import time
 
 import numpy as np
 import numpy.ma as ma
-from tqdm import tqdm
-
 import torch
 import torch.nn as nn
 import torch.distributed as dist
 from torch.nn import functional as F
+from tqdm import tqdm
 
-from utils.utils import AverageMeter
-from utils.utils import get_confusion_matrix
-from utils.utils import adjust_learning_rate
-from utils.utils import get_world_size, get_rank
-from utils.utils import save_checkpoint
+from deq.mdeq_vision.lib.utils.utils import AverageMeter
+from deq.mdeq_vision.lib.utils.utils import get_confusion_matrix
+from deq.mdeq_vision.lib.utils.utils import adjust_learning_rate
+from deq.mdeq_vision.lib.utils.utils import get_world_size, get_rank
+from deq.mdeq_vision.lib.utils.utils import save_checkpoint
 
 logger = logging.getLogger(__name__)
 
 def reduce_tensor(inp):
     """
-    Reduce the loss from all processes so that 
+    Reduce the loss from all processes so that
     process with rank 0 has the averaged results.
     """
     world_size = get_world_size()
@@ -38,7 +36,7 @@ def reduce_tensor(inp):
 
 def train(config, epoch, num_epoch, epoch_iters, base_lr, num_iters,
          trainloader, optimizer, lr_scheduler, model, output_dir, writer_dict, device):
-    
+
     # Training
     model.train()
     batch_time = AverageMeter()
@@ -75,7 +73,7 @@ def train(config, epoch, num_epoch, epoch_iters, base_lr, num_iters,
         delta_f_thres = random.randint(-config.DEQ.RAND_F_THRES_DELTA,1) if (config.DEQ.RAND_F_THRES_DELTA > 0 and compute_jac_loss) else 0
         f_thres = config.DEQ.F_THRES + delta_f_thres
         b_thres = config.DEQ.B_THRES
-        losses, jac_loss, _, _ = model(images, labels, train_step=global_steps, 
+        losses, jac_loss, _, _ = model(images, labels, train_step=global_steps,
                                        compute_jac_loss=compute_jac_loss,
                                        f_thres=f_thres, b_thres=b_thres, writer=writer)
         loss = losses.mean()
@@ -98,7 +96,7 @@ def train(config, epoch, num_epoch, epoch_iters, base_lr, num_iters,
         else:
             # If LR scheduler is None
             lr = adjust_learning_rate(optimizer, base_lr, num_iters, i_iter+cur_iters)
-        
+
         # update average loss
         ave_loss.update(reduced_loss.item())
         if compute_jac_loss:
@@ -113,7 +111,7 @@ def train(config, epoch, num_epoch, epoch_iters, base_lr, num_iters,
             print_jac_loss = ave_jac_loss.average() / world_size
             msg = 'Epoch: [{}/{}] Iter:[{}/{}], Time: {:.2f}, ' \
                   'lr: {:.6f}, Loss: {:.6f}, Jac: {:.4f} ({:.4f})' .format(
-                      epoch, num_epoch, i_iter, epoch_iters, 
+                      epoch, num_epoch, i_iter, epoch_iters,
                       batch_time.average(), lr, print_loss, print_jac_loss, factor)
             logging.info(msg)
 
@@ -124,7 +122,7 @@ def train(config, epoch, num_epoch, epoch_iters, base_lr, num_iters,
              logger.info(f'Note: Adding 0.1 to Jacobian regularization weight.')
 
 
-def validate(config, testloader, model, lr_scheduler, epoch, writer_dict, device, 
+def validate(config, testloader, model, lr_scheduler, epoch, writer_dict, device,
              spectral_radius_mode=False):
     model.eval()
     ave_loss = AverageMeter()
@@ -145,7 +143,7 @@ def validate(config, testloader, model, lr_scheduler, epoch, writer_dict, device
             image = image.to(device)
             label = label.long().to(device)
 
-            losses, _, pred, _ = model(image, label, train_step=(-1 if epoch < 0 else global_steps), 
+            losses, _, pred, _ = model(image, label, train_step=(-1 if epoch < 0 else global_steps),
                                        compute_jac_loss=False, spectral_radius_mode=spectral_radius_mode,
                                        writer=writer)
             pred = F.interpolate(input=pred, size=(size[-2], size[-1]), mode='bilinear', align_corners=True)
@@ -160,7 +158,7 @@ def validate(config, testloader, model, lr_scheduler, epoch, writer_dict, device
                 size,
                 config.DATASET.NUM_CLASSES,
                 config.TRAIN.IGNORE_LABEL)
-            
+
             if spectral_radius_mode:
                 sradius = sradius.mean()
                 ave_sradius.update(sradius.item(), input.size(0))
@@ -180,7 +178,7 @@ def validate(config, testloader, model, lr_scheduler, epoch, writer_dict, device
         if spectral_radius_mode:
             logger.info(f"Spectral radius over validation set: {sradiuses.average()}")
     return print_loss, mean_IoU, IoU_array
-    
+
 
 def testval(config, test_dataset, testloader, model, sv_dir='', sv_pred=False):
     model.eval()
@@ -189,10 +187,10 @@ def testval(config, test_dataset, testloader, model, sv_dir='', sv_pred=False):
         for index, batch in enumerate(tqdm(testloader)):
             image, label, _, name = batch
             size = label.size()
-            pred = test_dataset.multi_scale_inference(model, image, 
-                        scales=config.TEST.SCALE_LIST, 
+            pred = test_dataset.multi_scale_inference(model, image,
+                        scales=config.TEST.SCALE_LIST,
                         flip=config.TEST.FLIP_TEST)
-            
+
             if pred.size()[-2] != size[-2] or pred.size()[-1] != size[-1]:
                 pred = F.interpolate(pred, (size[-2], size[-1]), mode='bilinear', align_corners=True)
 
@@ -208,7 +206,7 @@ def testval(config, test_dataset, testloader, model, sv_dir='', sv_pred=False):
                 if not os.path.exists(sv_path):
                     os.mkdir(sv_path)
                 test_dataset.save_pred(pred, sv_path, name)
-            
+
             if index % 100 == 0:
                 logging.info('processing: %d images' % index)
                 pos = confusion_matrix.sum(1)
@@ -234,10 +232,10 @@ def test(config, test_dataset, testloader, model, sv_dir='', sv_pred=True):
         for _, batch in enumerate(tqdm(testloader)):
             image, size, name = batch
             size = size[0]
-            pred = test_dataset.multi_scale_inference(model, image, 
-                        scales=config.TEST.SCALE_LIST, 
+            pred = test_dataset.multi_scale_inference(model, image,
+                        scales=config.TEST.SCALE_LIST,
                         flip=config.TEST.FLIP_TEST)
-            
+
             if pred.size()[-2] != size[0] or pred.size()[-1] != size[1]:
                 pred = F.interpolate(pred, (size[-2], size[-1]), mode='bilinear', align_corners=True)
 

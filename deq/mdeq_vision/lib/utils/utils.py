@@ -89,6 +89,7 @@ def create_logger(cfg, cfg_name, phase='train', seed=0):
 
     dataset = cfg.DATASET.DATASET
     model = cfg.MODEL.NAME
+    # TODO: change cfg name based on some elements of the config, like shine, jf, etc.
     cfg_name = os.path.basename(cfg_name).split('.')[0]
 
     final_output_dir = root_output_dir / dataset / (cfg_name + f'_{seed}')

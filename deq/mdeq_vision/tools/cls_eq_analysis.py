@@ -74,6 +74,7 @@ def parse_args():
 
     return args
 
+
 def main():
     torch.manual_seed(42)
     args = parse_args()
@@ -100,9 +101,11 @@ def main():
     if torch.cuda.is_available():
         model = model.cuda()
 
-
     writer_dict = {
-        'writer': SummaryWriter(log_dir=tb_log_dir) if not config.DEBUG.DEBUG else None,
+        'writer': (
+            SummaryWriter(log_dir=tb_log_dir)
+            if not config.DEBUG.DEBUG else None
+        ),
         'train_global_steps': 0,
         'valid_global_steps': 0,
     }
@@ -119,12 +122,14 @@ def main():
     optimizer = get_optimizer(config, model)
     lr_scheduler = None
 
-    best_perf = 0.0
-    best_model = False
     last_epoch = config.TRAIN.BEGIN_EPOCH
     model_state_file = os.path.join(final_output_dir, f'checkpoint_{last_epoch}.pth.tar')
-    checkpoint = torch.load(model_state_file)
-    model.module.load_state_dict(checkpoint['state_dict'])
+    if torch.cuda.is_available():
+        checkpoint = torch.load(model_state_file)
+        model.module.load_state_dict(checkpoint['state_dict'])
+    else:
+        checkpoint = torch.load(model_state_file, map_location='cpu')
+        model.load_state_dict(checkpoint['state_dict'])
 
     # Update weight decay if needed
     checkpoint['optimizer']['param_groups'][0]['weight_decay'] = config.TRAIN.WD
@@ -135,7 +140,6 @@ def main():
                             last_epoch=checkpoint['lr_scheduler']['last_epoch'])
         lr_scheduler.load_state_dict(checkpoint['lr_scheduler'])
     logger.info("=> loaded checkpoint (epoch {})".format(checkpoint['epoch']))
-    best_model = True
 
     # Data loading code
     dataset_name = config.DATASET.DATASET
@@ -164,10 +168,8 @@ def main():
         train_dataset = datasets.CIFAR10(root=f'{config.DATASET.ROOT}', train=True, download=True, transform=transform_train)
 
     batch_size = config.TRAIN.BATCH_SIZE_PER_GPU
-    test_batch_size = config.TEST.BATCH_SIZE_PER_GPU
     if torch.cuda.is_available():
         batch_size = batch_size * len(config.GPUS)
-        test_batch_size = test_batch_size * len(config.GPUS)
     train_loader = torch.utils.data.DataLoader(
         train_dataset,
         batch_size=batch_size,
@@ -191,13 +193,12 @@ def main():
                 optimizer, config.TRAIN.LR_STEP, config.TRAIN.LR_FACTOR,
                 last_epoch-1)
 
-    if best_model:
-        # Loaded a checkpoint
-        writer_dict['train_global_steps'] = last_epoch * len(train_loader)
+    # Loaded a checkpoint
+    writer_dict['train_global_steps'] = last_epoch * len(train_loader)
 
     # Training code
     for epoch in range(last_epoch, config.TRAIN.END_EPOCH):
-        topk = (1,5) if dataset_name == 'imagenet' else (1,)
+        topk = (1, 5) if dataset_name == 'imagenet' else (1,)
         if config.TRAIN.LR_SCHEDULER == 'step':
             lr_scheduler.step()
 

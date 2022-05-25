@@ -249,6 +249,7 @@ def main():
         'image_index',
         'before_training',
         'trace',
+        'abs_trace',
         'init_type',
         'is_aug',
         'i_iter',
@@ -256,9 +257,11 @@ def main():
 
     def fill_df_results(df_results, result_info,  **data_kwargs):
         trace = result_info['rel_trace']
+        abs_trace = result_info['abs_trace']
         i_iter = np.arange(len(trace))
         df_trace = pd.DataFrame(data={
             'trace': trace,
+            'abs_trace': abs_trace,
             'i_iter': i_iter,
             **data_kwargs,
         })

@@ -1,11 +1,11 @@
 #!/bin/bash
 set -e
 
-cd deq/deq_sequence
+sequence="deq/deq_sequence"
 
 bash get_data.sh
 
-python train_transformer.py \
+python ${sequence}/train_transformer.py \
         --data ./data/wikitext-103/ \
         --dataset wt103 \
         --adaptive \

@@ -61,6 +61,9 @@ _C.DEQ.RAND_F_THRES_DELTA = 2
 _C.DEQ.F_THRES = 30
 _C.DEQ.B_THRES = 40
 _C.DEQ.SPECTRAL_RADIUS_MODE = False
+_C.DEQ.SHINE = False
+_C.DEQ.JACOBIAN_FREE = False
+_C.DEQ.REFINE = 0
 
 _C.LOSS = CN()
 _C.LOSS.JAC_LOSS_FREQ = 0.0
@@ -190,10 +193,10 @@ def update_config(cfg, args):
 
     if args.testModel:
         cfg.TEST.MODEL_FILE = args.testModel
-    
+
     if args.percent < 1:
         cfg.PERCENT = args.percent
-        
+
     cfg.merge_from_list(args.opts)
 
     cfg.freeze()

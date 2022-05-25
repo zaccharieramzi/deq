@@ -32,9 +32,9 @@ jobs:
         cache-name: cache-datasets
       with:
         path: data
-        key: build-${{ env.cache-name }}
+        key: build-${{ env.cache-name }}-v2
         restore-keys: |
-          build-${{ env.cache-name }}
+          build-${{ env.cache-name }}-v2
     - name: Set up Python 3.9
       uses: actions/setup-python@v2
       with:
@@ -58,9 +58,9 @@ jobs:
         cache-name: cache-datasets
       with:
         path: data
-        key: build-${{ env.cache-name }}
+        key: build-${{ env.cache-name }}-v2
         restore-keys: |
-          build-${{ env.cache-name }}
+          build-${{ env.cache-name }}-v2
     - name: Set up Python 3.9
       uses: actions/setup-python@v2
       with:

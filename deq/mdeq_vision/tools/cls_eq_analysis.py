@@ -6,10 +6,12 @@ from __future__ import print_function
 
 import argparse
 import os
+from pathlib import Path
 import pprint
 import shutil
 import sys
 
+import numpy as np
 import pandas as pd
 from termcolor import colored
 import torch
@@ -75,6 +77,10 @@ def parse_args():
     parser.add_argument('--dropout_eval',
                         help='whether to use dropout during the evaluation',
                         action='store_true')
+    parser.add_argument('--n_images',
+                        help='number of images to use for evaluation',
+                        type=int,
+                        default=10)
     parser.add_argument('opts',
                         help="Modify config options using the command-line",
                         default=None,
@@ -159,30 +165,54 @@ def main():
         traindir = os.path.join(config.DATASET.ROOT+'/images', config.DATASET.TRAIN_SET)
         valdir = os.path.join(config.DATASET.ROOT+'/images', config.DATASET.TEST_SET)
         normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-        transform_train = transforms.Compose([
+        augment_list = [
             transforms.RandomResizedCrop(config.MODEL.IMAGE_SIZE[0]),
             transforms.RandomHorizontalFlip(),
+        ]
+        transform_train = transforms.Compose(augment_list + [
             transforms.ToTensor(),
             normalize,
         ])
-        train_dataset = datasets.ImageFolder(traindir, transform_train)
+        transform_valid = transforms.Compose([
+            transforms.Resize(int(config.MODEL.IMAGE_SIZE[0] / 0.875)),
+            transforms.CenterCrop(config.MODEL.IMAGE_SIZE[0]),
+            transforms.ToTensor(),
+            normalize,
+        ])
+        train_dataset = datasets.ImageFolder(traindir, transform_valid)
+        aug_train_dataset = datasets.ImageFolder(traindir, transform_train)
     else:
         assert dataset_name == "cifar10", "Only CIFAR-10 and ImageNet are supported at this phase"
         classes = ('plane', 'car', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship', 'truck')  # For reference
 
         normalize = transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))
-        augment_list = [transforms.RandomCrop(32, padding=4), transforms.RandomHorizontalFlip()] if config.DATASET.AUGMENT else []
+        augment_list = [transforms.RandomCrop(32, padding=4), transforms.RandomHorizontalFlip()]
         transform_train = transforms.Compose(augment_list + [
             transforms.ToTensor(),
             normalize,
         ])
-        train_dataset = datasets.CIFAR10(root=f'{config.DATASET.ROOT}', train=True, download=True, transform=transform_train)
+        transform_valid = transforms.Compose([
+            transforms.ToTensor(),
+            normalize,
+        ])
+        train_dataset = datasets.CIFAR10(
+            root=f'{config.DATASET.ROOT}',
+            train=True,
+            download=True,
+            transform=transform_valid,
+        )
+        aug_train_dataset = datasets.CIFAR10(
+            root=f'{config.DATASET.ROOT}',
+            train=True,
+            download=True,
+            transform=transform_train,
+        )
 
     batch_size = config.TRAIN.BATCH_SIZE_PER_GPU
     if torch.cuda.is_available():
         batch_size = batch_size * len(config.GPUS)
-    train_loader = torch.utils.data.DataLoader(
-        train_dataset,
+    aug_train_loader = torch.utils.data.DataLoader(
+        aug_train_dataset,
         batch_size=batch_size,
         shuffle=True,
         num_workers=config.WORKERS,
@@ -194,7 +224,7 @@ def main():
     if lr_scheduler is None:
         if config.TRAIN.LR_SCHEDULER != 'step':
             lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-                optimizer, len(train_loader)*config.TRAIN.END_EPOCH, eta_min=1e-6)
+                optimizer, len(aug_train_loader)*config.TRAIN.END_EPOCH, eta_min=1e-6)
         elif isinstance(config.TRAIN.LR_STEP, list):
             lr_scheduler = torch.optim.lr_scheduler.MultiStepLR(
                 optimizer, config.TRAIN.LR_STEP, config.TRAIN.LR_FACTOR,
@@ -205,7 +235,7 @@ def main():
                 last_epoch-1)
 
     # Loaded a checkpoint
-    writer_dict['train_global_steps'] = last_epoch * len(train_loader)
+    writer_dict['train_global_steps'] = last_epoch * len(aug_train_loader)
 
     # Evaluating convergence before training
     model.eval()
@@ -220,14 +250,69 @@ def main():
         'i_iter',
     ])
 
+    def fill_df_results(df_results, result_info,  **data_kwargs):
+        trace = result_info['trace']
+        i_iter = np.arange(len(trace))
+        df_trace = pd.DataFrame(data={
+            'trace': trace,
+            'i_iter': i_iter,
+            **data_kwargs,
+        })
+        df_results = df_results.append(df_trace, ignore_index=True)
+        return df_results
+
+    image_indices = np.random.choice(
+        len(train_dataset),
+        args.n_images,
+        replace=False,
+    )
+    vanilla_inits = {}
+    aug_inits = {}
+    fn = model.module._forward if torch.cuda.is_available() else model._forward
+    for image_index in image_indices:
+        image, _ = train_dataset[image_index]
+        image = image.unsqueeze(0)
+        if torch.cuda.is_available():
+            image = image.cuda()
+        # pot in kwargs we can have: f_thres, b_thres, lim_mem
+        y_list, *_, result_info = fn(image, train_step=-1, return_result=True)
+        vanilla_inits[image_index] = y_list
+        df_results = fill_df_results(
+            df_results,
+            result_info,
+            image_index=image_index,
+            before_training=True,
+            init_type=None,
+            is_aug=False,
+        )
+        aug_image, _ = aug_train_dataset[image_index]
+        aug_image = aug_image.unsqueeze(0)
+        if torch.cuda.is_available():
+            aug_image = aug_image.cuda()
+        aug_y_list, *_ = fn(aug_image, train_step=-1)
+        aug_inits[image_index] = aug_y_list
+
+
+
     # Training code
     topk = (1, 5) if dataset_name == 'imagenet' else (1,)
     if config.TRAIN.LR_SCHEDULER == 'step':
         lr_scheduler.step()
 
     # train for one epoch
-    train(config, train_loader, model, criterion, optimizer, lr_scheduler, epoch,
-            final_output_dir, tb_log_dir, writer_dict, topk=topk)
+    train(
+        config,
+        aug_train_loader,
+        model,
+        criterion,
+        optimizer,
+        lr_scheduler,
+        last_epoch,
+        final_output_dir,
+        tb_log_dir,
+        writer_dict,
+        topk=topk,
+    )
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
     if writer_dict['writer'] is not None:
@@ -235,6 +320,66 @@ def main():
 
     if writer_dict['writer'] is not None:
         writer_dict['writer'].close()
+
+    model.eval()
+    if args.dropout_eval:
+        set_dropout_modules_active(model)
+    for image_index in image_indices:
+        image, _ = train_dataset[image_index]
+        image = image.unsqueeze(0)
+        if torch.cuda.is_available():
+            image = image.cuda()
+        *_, result = fn(image, train_step=-1, return_result=True)
+        df_results = fill_df_results(
+            df_results,
+            result,
+            image_index=image_index,
+            before_training=False,
+            init_type=None,
+            is_aug=False,
+        )
+        *_, result = fn(
+            image,
+            train_step=-1,
+            return_result=True,
+            z_0=vanilla_inits[image_index],
+        )
+        df_results = fill_df_results(
+            df_results,
+            result,
+            image_index=image_index,
+            before_training=False,
+            init_type='vanilla',
+            is_aug=False,
+        )
+        new_aug_image, _ = aug_train_dataset[image_index]
+        new_aug_image = new_aug_image.unsqueeze(0)
+        if torch.cuda.is_available():
+            new_aug_image = new_aug_image.cuda()
+        *_, result = fn(
+            new_aug_image,
+            train_step=-1,
+            return_result=True,
+            z_0=aug_inits[image_index],
+        )
+        df_results = fill_df_results(
+            df_results,
+            result,
+            image_index=image_index,
+            before_training=False,
+            init_type='aug',
+            is_aug=True,
+        )
+    model_size = Path(args.cfg).stem[9:]
+    percent = args.percent * 100
+    results_name = f'eq_init_results_{dataset_name}_{model_size}_{percent}'
+    results_name += f'_ckpt{last_epoch}'
+    if args.dropout_eval:
+        results_name += '_dropout'
+    df_results.to_csv(
+        f'{results_name}.csv',
+    )
+    return df_results
 
 
 if __name__ == '__main__':

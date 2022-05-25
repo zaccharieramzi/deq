@@ -63,6 +63,10 @@ def parse_args():
                         help='random seed',
                         type=int,
                         default=0)
+    parser.add_argument('--restart_at',
+                        help='restart training at this epoch',
+                        type=int,
+                        default=None)
     parser.add_argument('opts',
                         help="Modify config options using the command-line",
                         default=None,
@@ -135,7 +139,11 @@ def main():
     best_model = False
     last_epoch = config.TRAIN.BEGIN_EPOCH
     if config.TRAIN.RESUME:
-        model_state_file = os.path.join(final_output_dir, 'checkpoint.pth.tar')
+        checkpoint_file = 'checkpoint'
+        if args.restart_at is not None:
+            checkpoint_file += f'_{args.restart_at}'
+        checkpoint_file += '.pth.tar'
+        model_state_file = os.path.join(final_output_dir, checkpoint_file)
         if os.path.isfile(model_state_file):
             if torch.cuda.is_available():
                 checkpoint = torch.load(model_state_file)

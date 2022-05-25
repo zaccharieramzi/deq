@@ -18,7 +18,7 @@ import numpy as np
 
 class FullModel(nn.Module):
     """
-    Distribute the loss on multi-gpu to reduce 
+    Distribute the loss on multi-gpu to reduce
     the memory cost in the main gpu.
     You can check the following discussion.
     https://discuss.pytorch.org/t/dataparallel-imbalanced-memory-usage/22551/21
@@ -78,9 +78,9 @@ class AverageMeter(object):
 
     def average(self):
         return self.avg
-    
 
-def create_logger(cfg, cfg_name, phase='train'):
+
+def create_logger(cfg, cfg_name, phase='train', seed=0):
     root_output_dir = Path(cfg.OUTPUT_DIR)
     # set up logger
     if not root_output_dir.exists():
@@ -91,7 +91,7 @@ def create_logger(cfg, cfg_name, phase='train'):
     model = cfg.MODEL.NAME
     cfg_name = os.path.basename(cfg_name).split('.')[0]
 
-    final_output_dir = root_output_dir / dataset / cfg_name
+    final_output_dir = root_output_dir / dataset / cfg_name + f'_{seed}'
 
     print('=> creating {}'.format(final_output_dir))
     final_output_dir.mkdir(parents=True, exist_ok=True)
@@ -177,7 +177,7 @@ def get_confusion_matrix(label, pred, size, num_class, ignore=-1):
     return confusion_matrix
 
 
-def adjust_learning_rate(optimizer, base_lr, max_iters, 
+def adjust_learning_rate(optimizer, base_lr, max_iters,
         cur_iters, power=0.9):
     lr = base_lr*((1-float(cur_iters)/max_iters)**(power))
     optimizer.param_groups[0]['lr'] = lr

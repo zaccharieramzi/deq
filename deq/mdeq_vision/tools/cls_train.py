@@ -59,6 +59,10 @@ def parse_args():
                         help='percentage of training data to use',
                         type=float,
                         default=1.0)
+    parser.add_argument('--seed',
+                        help='random seed',
+                        type=int,
+                        default=0)
     parser.add_argument('opts',
                         help="Modify config options using the command-line",
                         default=None,
@@ -70,8 +74,9 @@ def parse_args():
     return args
 
 def main():
-    torch.manual_seed(42)
     args = parse_args()
+    seed = args.seed
+    torch.manual_seed(seed)
     try:
         torch.multiprocessing.set_start_method('spawn')
     except RuntimeError:
@@ -84,7 +89,7 @@ def main():
         device_str = 'cpu'
 
     logger, final_output_dir, tb_log_dir = create_logger(
-        config, args.cfg, 'train')
+        config, args.cfg, 'train', seed)
 
     logger.info(pprint.pformat(args))
     logger.info(pprint.pformat(config))

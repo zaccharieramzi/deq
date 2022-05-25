@@ -398,6 +398,7 @@ class MDEQNet(nn.Module):
         num_branches = self.num_branches
         f_thres = kwargs.get('f_thres', self.f_thres)
         b_thres = kwargs.get('b_thres', self.b_thres)
+        z_list = kwargs.get('z_list', None)
         x = self.downsample(x)
         rank = get_rank()
 
@@ -407,7 +408,8 @@ class MDEQNet(nn.Module):
             bsz, _, H, W = x_list[-1].shape
             x_list.append(torch.zeros(bsz, self.num_channels[i], H//2, W//2).to(x))   # ... and the rest are all zeros
 
-        z_list = [torch.zeros_like(elem) for elem in x_list]
+        if z_list is None:
+            z_list = [torch.zeros_like(elem) for elem in x_list]
         z1 = list2vec(z_list)
         cutoffs = [(elem.size(1), elem.size(2), elem.size(3)) for elem in z_list]
         func = lambda z: list2vec(self.fullstage(vec2list(z, cutoffs), x_list))

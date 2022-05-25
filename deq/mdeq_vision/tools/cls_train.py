@@ -261,7 +261,8 @@ def main():
 
         logger.info('=> saving checkpoint to {}'.format(final_output_dir))
         checkpoint_files = ['checkpoint.pth.tar']
-        if epoch in args.save_at:
+        save_at = args.save_at
+        if save_at and epoch in save_at:
             checkpoint_files.append(f'checkpoint_{epoch}.pth.tar')
         for checkpoint_file in checkpoint_files:
             save_checkpoint({

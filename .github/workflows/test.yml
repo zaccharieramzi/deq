@@ -17,6 +17,12 @@ jobs:
   test:
     name: Test Code
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        test_suite: [
+          'test_cls_train_and_test',
+          'test_transformer_train',
+        ]
     steps:
     - uses: actions/checkout@v2
 
@@ -38,7 +44,5 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install .
-    - name: Test CLS
-      run: bash tests/test_cls_train_and_test.sh
-    - name: Test Transformer
-      run: bash tests/test_transformer_train.sh
+    - name: Test Train
+      run: bash tests/${{matrix.test_suite}}.sh

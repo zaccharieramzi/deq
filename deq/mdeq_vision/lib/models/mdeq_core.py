@@ -455,7 +455,6 @@ class MDEQNet(nn.Module):
                         self.hook.remove()
                         if torch.cuda.is_available():
                             torch.cuda.synchronize()
-                    # TODO: implement refinement
                     if self.jacobian_free:
                         dl_df_est = grad
                     elif self.shine:

@@ -119,7 +119,7 @@ def matvec(part_Us, part_VTs, x):
     return -x + torch.einsum('bijd, bd -> bij', part_Us, VTx)     # (N, 2d, L'), but should really be (N, (2d*L'), 1)
 
 
-def broyden(f, x0, threshold, eps=1e-3, stop_mode="rel", ls=False, name="unknown"):
+def broyden(f, x0, threshold, eps=1e-3, stop_mode="rel", ls=False, name="unknown", init_tensors=None):
     bsz, total_hsize, seq_len = x0.size()
     g = lambda y: f(y) - y
     dev = x0.device
@@ -127,12 +127,18 @@ def broyden(f, x0, threshold, eps=1e-3, stop_mode="rel", ls=False, name="unknown
 
     x_est = x0           # (bsz, 2d, L')
     gx = g(x_est)        # (bsz, 2d, L')
-    nstep = 0
     tnstep = 0
 
     # For fast calculation of inv_jacobian (approximately)
-    Us = torch.zeros(bsz, total_hsize, seq_len, threshold).to(dev)     # One can also use an L-BFGS scheme to further reduce memory
-    VTs = torch.zeros(bsz, threshold, total_hsize, seq_len).to(dev)
+    if init_tensors is None:
+        nstep = 0
+        orig_nstep = 0
+        Us = torch.zeros(bsz, total_hsize, seq_len, threshold).to(dev)     # One can also use an L-BFGS scheme to further reduce memory
+        VTs = torch.zeros(bsz, threshold, total_hsize, seq_len).to(dev)
+    else:
+        nstep, Us, VTs = init_tensors
+        threshold = threshold + nstep
+        orig_nstep = nstep.clone()
     update = -matvec(Us[:,:,:,:nstep], VTs[:,:nstep], gx)      # Formally should be -torch.matmul(inv_jacobian (-I), gx)
     prot_break = False
 
@@ -167,7 +173,7 @@ def broyden(f, x0, threshold, eps=1e-3, stop_mode="rel", ls=False, name="unknown
 
         new_objective = diff_dict[stop_mode]
         if new_objective < eps: break
-        if new_objective < 3*eps and nstep > 30 and np.max(trace_dict[stop_mode][-30:]) / np.min(trace_dict[stop_mode][-30:]) < 1.3:
+        if new_objective < 3*eps and nstep > (30 + orig_nstep) and np.max(trace_dict[stop_mode][-30:]) / np.min(trace_dict[stop_mode][-30:]) < 1.3:
             # if there's hardly been any progress in the last 30 steps
             break
         if new_objective > trace_dict[stop_mode][0] * protect_thres:
@@ -190,7 +196,7 @@ def broyden(f, x0, threshold, eps=1e-3, stop_mode="rel", ls=False, name="unknown
 
     return {"result": lowest_xest,
             "lowest": lowest_dict[stop_mode],
-            "nstep": lowest_step_dict[stop_mode],
+            "nstep": lowest_step_dict[stop_mode] - orig_nstep,
             "Us": Us,
             "VTs": VTs,
             "prot_break": prot_break,

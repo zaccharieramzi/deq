@@ -132,10 +132,14 @@ def main():
     if config.TRAIN.RESUME:
         model_state_file = os.path.join(final_output_dir, 'checkpoint.pth.tar')
         if os.path.isfile(model_state_file):
-            checkpoint = torch.load(model_state_file)
+            if torch.cuda.is_available():
+                checkpoint = torch.load(model_state_file)
+                model.module.load_state_dict(checkpoint['state_dict'])
+            else:
+                checkpoint = torch.load(model_state_file, map_location=torch.device('cpu'))
+                model.load_state_dict(checkpoint['state_dict'])
             last_epoch = checkpoint['epoch']
             best_perf = checkpoint['perf']
-            model.module.load_state_dict(checkpoint['state_dict'])
 
             # Update weight decay if needed
             checkpoint['optimizer']['param_groups'][0]['weight_decay'] = config.TRAIN.WD

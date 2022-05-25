@@ -31,8 +31,7 @@ jobs:
       env:
         cache-name: cache-datasets
       with:
-        path: |
-          data
+        path: data
         key: build-${{ env.cache-name }}
         restore-keys: |
           build-${{ env.cache-name }}
@@ -58,8 +57,7 @@ jobs:
       env:
         cache-name: cache-datasets
       with:
-        path: |
-          data
+        path: data
         key: build-${{ env.cache-name }}
         restore-keys: |
           build-${{ env.cache-name }}

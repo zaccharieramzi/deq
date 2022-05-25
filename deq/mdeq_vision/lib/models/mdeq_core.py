@@ -18,7 +18,7 @@ import torch.nn.functional as F
 import torch.autograd as autograd
 
 from deq.lib.optimizations import VariationalHidDropout2d, weight_norm
-from deq.lib.solvers import anderson, broyden
+from deq.lib.solvers import anderson, broyden, rmatvec
 from deq.lib.jacobian import jac_loss_estimate, power_method
 from deq.lib.layer_utils import list2vec, vec2list, norm_diff, conv3x3, conv5x5
 from deq.mdeq_vision.lib.utils.utils import get_world_size, get_rank
@@ -364,6 +364,7 @@ class MDEQNet(nn.Module):
         self.pretrain_steps = cfg['TRAIN']['PRETRAIN_STEPS']
 
         # DEQ related
+        self.qn_forward_solver = cfg['DEQ']['F_SOLVER'] == 'broyden'
         self.f_solver = eval(cfg['DEQ']['F_SOLVER'])
         self.b_solver = eval(cfg['DEQ']['B_SOLVER'])
         if self.b_solver is None:
@@ -373,6 +374,7 @@ class MDEQNet(nn.Module):
         self.stop_mode = cfg['DEQ']['STOP_MODE']
         self.shine = cfg['DEQ']['SHINE']
         self.jacobian_free = cfg['DEQ']['JACOBIAN_FREE']
+        self.fallback = cfg['DEQ']['SHINE_FALLBACK']
 
         # Update global variables
         DEQ_EXPAND = cfg['MODEL']['EXPANSION_FACTOR']
@@ -434,8 +436,8 @@ class MDEQNet(nn.Module):
                     jac_loss = jac_loss_estimate(new_z2, z2)
         else:
             with torch.no_grad():
-                result = self.f_solver(func, z1, threshold=f_thres, stop_mode=self.stop_mode, name="forward")
-                z1 = result['result']
+                result_fwd = self.f_solver(func, z1, threshold=f_thres, stop_mode=self.stop_mode, name="forward")
+                z1 = result_fwd['result']
             new_z1 = z1
 
             if (not self.training) and spectral_radius_mode:
@@ -457,8 +459,21 @@ class MDEQNet(nn.Module):
                     if self.jacobian_free:
                         return grad
                     elif self.shine:
-                        # TODO: implement the true shine backward pass + fallback
-                        return grad
+                        if not self.qn_forward_solver:
+                            raise ValueError('Can only use SHINE with a quasi Newton forward solver')
+                        Us = result_fwd['Us']
+                        VTs = result_fwd['VTs']
+                        nstep = result_fwd['nstep']
+                        dl_df_est = - rmatvec(Us[:,:,:,:nstep-1], VTs[:,:nstep-1], grad)
+                        if self.fallback:
+                            # This implements a fallback in case our inverse approximation
+                            # is completely off.
+                            # This hardcoded value should be changed at some point to a config
+                            # value
+                            fallback_mask = dl_df_est.view(bsz, -1).norm(dim=1) > 1.8 * grad.view(bsz, -1).norm(dim=1)
+                            fallback_mask = fallback_mask[:, None, None]
+                            dl_df_est = fallback_mask * grad + ~fallback_mask * dl_df_est
+                        return dl_df_est
                     else:
                         result = self.b_solver(lambda y: autograd.grad(new_z1, z1, y, retain_graph=True)[0] + grad, torch.zeros_like(grad),
                                             threshold=b_thres, stop_mode=self.stop_mode, name="backward")

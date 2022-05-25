@@ -110,13 +110,6 @@ def main():
             ))
         logger.info(colored('=> loading model from {}'.format(config.TRAIN.MODEL_FILE), 'red'))
 
-    # copy model file
-    this_dir = os.path.dirname(__file__)
-    models_dst_dir = os.path.join(final_output_dir, 'models')
-    if os.path.exists(models_dst_dir):
-        shutil.rmtree(models_dst_dir)
-    shutil.copytree(os.path.join(this_dir, '../lib/models'), models_dst_dir)
-
     writer_dict = {
         'writer': SummaryWriter(log_dir=tb_log_dir) if not config.DEBUG.DEBUG else None,
         'train_global_steps': 0,

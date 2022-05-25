@@ -10,6 +10,7 @@ import pprint
 import shutil
 import sys
 
+import pandas as pd
 from termcolor import colored
 import torch
 import torch.nn as nn
@@ -22,6 +23,7 @@ import torchvision.datasets as datasets
 import torchvision.transforms as transforms
 from torch.utils.tensorboard import SummaryWriter
 
+from deq.lib.optimizations import VariationalHidDropout2d
 from deq.mdeq_vision.lib import models
 from deq.mdeq_vision.lib.config import config
 from deq.mdeq_vision.lib.config import update_config
@@ -30,6 +32,12 @@ from deq.mdeq_vision.lib.utils.modelsummary import get_model_summary
 from deq.mdeq_vision.lib.utils.utils import get_optimizer
 from deq.mdeq_vision.lib.utils.utils import save_checkpoint
 from deq.mdeq_vision.lib.utils.utils import create_logger
+
+
+def set_dropout_modules_active(model):
+    for m in model.modules():
+        if isinstance(m, VariationalHidDropout2d):
+            m.train()
 
 
 def parse_args():
@@ -64,6 +72,9 @@ def parse_args():
                         space-separated''',
                         type=int,
                         nargs='+')
+    parser.add_argument('--dropout_eval',
+                        help='whether to use dropout during the evaluation',
+                        action='store_true')
     parser.add_argument('opts',
                         help="Modify config options using the command-line",
                         default=None,
@@ -196,38 +207,32 @@ def main():
     # Loaded a checkpoint
     writer_dict['train_global_steps'] = last_epoch * len(train_loader)
 
+    # Evaluating convergence before training
+    model.eval()
+    if args.dropout_eval:
+        set_dropout_modules_active(model)
+    df_results = pd.DataFrame(columns=[
+        'image_index',
+        'before_training',
+        'trace',
+        'init_type',
+        'is_aug',
+        'i_iter',
+    ])
+
     # Training code
-    for epoch in range(last_epoch, config.TRAIN.END_EPOCH):
-        topk = (1, 5) if dataset_name == 'imagenet' else (1,)
-        if config.TRAIN.LR_SCHEDULER == 'step':
-            lr_scheduler.step()
+    topk = (1, 5) if dataset_name == 'imagenet' else (1,)
+    if config.TRAIN.LR_SCHEDULER == 'step':
+        lr_scheduler.step()
 
-        # train for one epoch
-        train(config, train_loader, model, criterion, optimizer, lr_scheduler, epoch,
-              final_output_dir, tb_log_dir, writer_dict, topk=topk)
-        if torch.cuda.is_available():
-            torch.cuda.empty_cache()
-        if writer_dict['writer'] is not None:
-            writer_dict['writer'].flush()
+    # train for one epoch
+    train(config, train_loader, model, criterion, optimizer, lr_scheduler, epoch,
+            final_output_dir, tb_log_dir, writer_dict, topk=topk)
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+    if writer_dict['writer'] is not None:
+        writer_dict['writer'].flush()
 
-        logger.info('=> saving checkpoint to {}'.format(final_output_dir))
-        checkpoint_files = ['checkpoint.pth.tar']
-        if epoch in args.save_at:
-            checkpoint_files.append(f'checkpoint_{epoch}.pth.tar')
-        for checkpoint_file in checkpoint_files:
-            save_checkpoint({
-                'epoch': epoch + 1,
-                'model': config.MODEL.NAME,
-                'state_dict': model.module.state_dict() if torch.cuda.is_available() else model.state_dict(),
-                'optimizer': optimizer.state_dict(),
-                'lr_scheduler': lr_scheduler.state_dict(),
-                'train_global_steps': writer_dict['train_global_steps'],
-            }, best_model, final_output_dir, filename=checkpoint_file)
-
-    final_model_state_file = os.path.join(final_output_dir, 'final_state.pth.tar')
-    logger.info('saving final model state to {}'.format(final_model_state_file))
-    state_dict = model.module.state_dict() if torch.cuda.is_available() else model.state_dict()
-    torch.save(state_dict, final_model_state_file)
     if writer_dict['writer'] is not None:
         writer_dict['writer'].close()
 

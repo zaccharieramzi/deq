@@ -457,7 +457,7 @@ class MDEQNet(nn.Module):
                             torch.cuda.synchronize()
                     # TODO: implement refinement
                     if self.jacobian_free:
-                        return grad
+                        dl_df_est = grad
                     elif self.shine:
                         if not self.qn_forward_solver:
                             raise ValueError('Can only use SHINE with a quasi Newton forward solver')
@@ -473,10 +473,16 @@ class MDEQNet(nn.Module):
                             fallback_mask = dl_df_est.view(bsz, -1).norm(dim=1) > 1.8 * grad.view(bsz, -1).norm(dim=1)
                             fallback_mask = fallback_mask[:, None, None]
                             dl_df_est = fallback_mask * grad + ~fallback_mask * dl_df_est
-                        return dl_df_est
                     else:
-                        result = self.b_solver(lambda y: autograd.grad(new_z1, z1, y, retain_graph=True)[0] + grad, torch.zeros_like(grad),
-                                            threshold=b_thres, stop_mode=self.stop_mode, name="backward")
+                        dl_df_est = torch.zeros_like(grad)
+                    if b_thres > 0:
+                        result = self.b_solver(
+                            lambda y: autograd.grad(new_z1, z1, y, retain_graph=True)[0] + grad,
+                            dl_df_est,
+                            threshold=b_thres,
+                            stop_mode=self.stop_mode, name="backward",
+                            init_tensors=(nstep, Us, VTs) if self.shine else None,
+                        )
                         return result['result']
                 self.hook = new_z1.register_hook(backward_hook)
 

@@ -30,6 +30,34 @@ def test_cls_train(config):
         main()
 
 
+def test_cls_train_restart():
+    args = [
+        "main",
+        "--save_at",
+        "1",
+        "--cfg",
+        "deq/mdeq_vision/experiments/cifar/cls_mdeq_TINY.yaml",
+        "--percent",
+        "0.0035",
+        "TRAIN.END_EPOCH",
+        "2",
+        "TRAIN.PRETRAIN_STEPS",
+        "1",
+        "DEQ.F_THRES",
+        "5",
+        "DEQ.B_THRES",
+        "5",
+        "MODEL.NUM_LAYERS",
+        "2",
+    ]
+    with patch("sys.argv", args):
+        main()
+
+    args[args.index("save_at")] = "--restart_at"
+    with patch("sys.argv", args):
+        main()
+
+
 @pytest.mark.parametrize("config", [
     "TINY",
     "LARGE_reg",

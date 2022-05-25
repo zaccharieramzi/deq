@@ -1,3 +1,4 @@
+pandas
 tensorboard
 torch>=1.10
 torchvision>=0.4.0

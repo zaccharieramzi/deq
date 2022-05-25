@@ -133,11 +133,13 @@ def broyden(f, x0, threshold, eps=1e-3, stop_mode="rel", ls=False, name="unknown
     if init_tensors is None:
         nstep = 0
         orig_nstep = 0
+        max_dim = threshold
         Us = torch.zeros(bsz, total_hsize, seq_len, threshold).to(dev)     # One can also use an L-BFGS scheme to further reduce memory
         VTs = torch.zeros(bsz, threshold, total_hsize, seq_len).to(dev)
     else:
         nstep, Us, VTs = init_tensors
         threshold = threshold + nstep
+        max_dim = Us.shape[-1]
         orig_nstep = nstep
     update = -matvec(Us[:,:,:,:nstep], VTs[:,:nstep], gx)      # Formally should be -torch.matmul(inv_jacobian (-I), gx)
     prot_break = False
@@ -185,8 +187,8 @@ def broyden(f, x0, threshold, eps=1e-3, stop_mode="rel", ls=False, name="unknown
         u = (delta_x - matvec(part_Us, part_VTs, delta_gx)) / torch.einsum('bij, bij -> b', vT, delta_gx)[:,None,None]
         vT[vT != vT] = 0
         u[u != u] = 0
-        VTs[:,nstep-1] = vT
-        Us[:,:,:,nstep-1] = u
+        VTs[:, (nstep-1) % max_dim] = vT
+        Us[..., (nstep-1) % max_dim] = u
         update = -matvec(Us[:,:,:,:nstep], VTs[:,:nstep], gx)
 
     # Fill everything up to the threshold length

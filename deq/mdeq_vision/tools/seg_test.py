@@ -110,8 +110,10 @@ def main():
     if torch.cuda.is_available():
         gpus = list(config.GPUS)
         model = nn.DataParallel(model, device_ids=gpus).cuda()
+        device_str = 'cuda'
     else:
         gpus = [-1]
+        device_str = 'cpu'
 
     # prepare data
     test_size = (config.TEST.IMAGE_SIZE[1], config.TEST.IMAGE_SIZE[0])
@@ -132,7 +134,9 @@ def main():
         batch_size=1,
         shuffle=False,
         num_workers=config.WORKERS,
-        pin_memory=True)
+        pin_memory=True,
+        generator=torch.Generator(device=device_str),
+    )
 
     start = timeit.default_timer()
     if 'val' in config.DATASET.TEST_SET:

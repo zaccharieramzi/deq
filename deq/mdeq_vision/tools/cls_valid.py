@@ -88,11 +88,13 @@ def main():
         logger.info('=> loading model from {}'.format(model_state_file))
     if torch.cuda.is_available():
         model.load_state_dict(torch.load(model_state_file))
+        device_str = 'cuda'
     else:
         model.load_state_dict(torch.load(
             model_state_file,
             map_location='cpu',
         ))
+        device_str = 'cpu'
 
     if torch.cuda.is_available():
         gpus = list(config.GPUS)
@@ -135,7 +137,8 @@ def main():
         batch_size=test_batch_size,
         shuffle=False,
         num_workers=config.WORKERS,
-        pin_memory=True
+        pin_memory=True,
+        generator=torch.Generator(device=device_str),
     )
 
     # evaluate on validation set

@@ -76,6 +76,9 @@ def main():
     if torch.cuda.is_available():
         print(colored("Setting default tensor type to cuda.FloatTensor", "cyan"))
         torch.set_default_tensor_type('torch.cuda.FloatTensor')
+        device_str = 'cuda'
+    else:
+        device_str = 'cpu'
 
     logger, final_output_dir, tb_log_dir = create_logger(
         config, args.cfg, 'train')
@@ -197,14 +200,16 @@ def main():
         batch_size=batch_size,
         shuffle=True,
         num_workers=config.WORKERS,
-        pin_memory=True
+        pin_memory=True,
+        generator=torch.Generator(device=device_str),
     )
     valid_loader = torch.utils.data.DataLoader(
         valid_dataset,
         batch_size=test_batch_size,
         shuffle=False,
         num_workers=config.WORKERS,
-        pin_memory=True
+        pin_memory=True,
+        generator=torch.Generator(device=device_str),
     )
 
     # Learning rate scheduler

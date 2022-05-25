@@ -91,10 +91,12 @@ def main():
     if torch.cuda.is_available():
         gpus = list(config.GPUS)
         distributed = len(gpus) > 1
+        device_str = 'cuda'
         device = torch.device('cuda:{}'.format(args.local_rank))
     else:
         distributed = False
         gpus = [-1]
+        device_str = 'cpu'
         device = torch.device('cpu')
 
     # build model
@@ -156,7 +158,9 @@ def main():
         num_workers=config.WORKERS,
         pin_memory=True,
         drop_last=True,
-        sampler=train_sampler)
+        sampler=train_sampler,
+        generator=torch.Generator(device=device_str),
+    )
 
     if config.DATASET.EXTRA_TRAIN_SET:
         extra_train_dataset = eval('datasets.'+config.DATASET.DATASET)(
@@ -184,7 +188,9 @@ def main():
             num_workers=config.WORKERS,
             pin_memory=True,
             drop_last=True,
-            sampler=extra_train_sampler)
+            sampler=extra_train_sampler,
+            generator=torch.Generator(device=device_str),
+        )
 
     test_size = (config.TEST.IMAGE_SIZE[1], config.TEST.IMAGE_SIZE[0])
     test_dataset = eval('datasets.'+config.DATASET.DATASET)(
@@ -211,7 +217,9 @@ def main():
         shuffle=False,
         num_workers=config.WORKERS,
         pin_memory=True,
-        sampler=test_sampler)
+        sampler=test_sampler,
+        generator=torch.Generator(device=device_str),
+    )
 
     # criterion
     if config.LOSS.USE_OHEM:

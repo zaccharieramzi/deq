@@ -61,9 +61,9 @@ def parse_args():
                         default=1.0)
     parser.add_argument('--save_at',
                         help='''save checkpoint at certain epochs,
-                        comma-separated''',
-                        type=list,
-                        default=[])
+                        space-separated''',
+                        type=int,
+                        nargs='+')
     parser.add_argument('opts',
                         help="Modify config options using the command-line",
                         default=None,
@@ -258,8 +258,7 @@ def main():
 
         logger.info('=> saving checkpoint to {}'.format(final_output_dir))
         checkpoint_files = ['checkpoint.pth.tar']
-        save_at = [int(s) for s in args.save_at]
-        if epoch in save_at:
+        if epoch in args.save_at:
             checkpoint_files.append(f'checkpoint_{epoch}.pth.tar')
         for checkpoint_file in checkpoint_files:
             save_checkpoint({

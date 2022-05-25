@@ -371,6 +371,8 @@ class MDEQNet(nn.Module):
         self.f_thres = cfg['DEQ']['F_THRES']
         self.b_thres = cfg['DEQ']['B_THRES']
         self.stop_mode = cfg['DEQ']['STOP_MODE']
+        self.shine = cfg['DEQ']['SHINE']
+        self.jacobian_free = cfg['DEQ']['JACOBIAN_FREE']
 
         # Update global variables
         DEQ_EXPAND = cfg['MODEL']['EXPANSION_FACTOR']
@@ -451,9 +453,16 @@ class MDEQNet(nn.Module):
                         self.hook.remove()
                         if torch.cuda.is_available():
                             torch.cuda.synchronize()
-                    result = self.b_solver(lambda y: autograd.grad(new_z1, z1, y, retain_graph=True)[0] + grad, torch.zeros_like(grad),
-                                          threshold=b_thres, stop_mode=self.stop_mode, name="backward")
-                    return result['result']
+                    # TODO: implement refinement
+                    if self.jacobian_free:
+                        return grad
+                    elif self.shine:
+                        # TODO: implement the true shine backward pass + fallback
+                        return grad
+                    else:
+                        result = self.b_solver(lambda y: autograd.grad(new_z1, z1, y, retain_graph=True)[0] + grad, torch.zeros_like(grad),
+                                            threshold=b_thres, stop_mode=self.stop_mode, name="backward")
+                        return result['result']
                 self.hook = new_z1.register_hook(backward_hook)
 
         y_list = self.iodrop(vec2list(new_z1, cutoffs))

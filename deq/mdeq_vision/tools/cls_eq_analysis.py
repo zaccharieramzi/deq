@@ -8,8 +8,6 @@ import argparse
 import os
 from pathlib import Path
 import pprint
-import shutil
-import sys
 
 import numpy as np
 import pandas as pd
@@ -26,13 +24,10 @@ import torchvision.transforms as transforms
 from torch.utils.tensorboard import SummaryWriter
 
 from deq.lib.optimizations import VariationalHidDropout2d
-from deq.mdeq_vision.lib import models
+from deq.mdeq_vision.lib import models  # noqa F401
 from deq.mdeq_vision.lib.config import config
 from deq.mdeq_vision.lib.config import update_config
 from deq.mdeq_vision.lib.core.cls_function import train
-from deq.mdeq_vision.lib.utils.modelsummary import get_model_summary
-from deq.mdeq_vision.lib.utils.utils import get_optimizer
-from deq.mdeq_vision.lib.utils.utils import save_checkpoint
 from deq.mdeq_vision.lib.utils.utils import create_logger
 
 
@@ -299,8 +294,6 @@ def main():
             aug_image = aug_image.cuda()
         aug_y_list, *_ = fn(aug_image, train_step=-1)
         aug_inits[image_index] = aug_y_list
-
-
 
     # Training code
     topk = (1, 5) if dataset_name == 'imagenet' else (1,)

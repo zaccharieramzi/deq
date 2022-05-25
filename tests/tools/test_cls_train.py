@@ -34,7 +34,11 @@ def test_cls_train(config):
     "TINY",
     "LARGE_reg",
 ])
-def test_cls_train_shine(config):
+@pytest.mark.parametrize("n_refine", [
+    0,
+    1,
+])
+def test_cls_train_shine(config, n_refine):
     args = [
         "main",
         "--cfg",
@@ -48,7 +52,7 @@ def test_cls_train_shine(config):
         "DEQ.F_THRES",
         "5",
         "DEQ.B_THRES",
-        "0",
+        f"{n_refine}",
         "DEQ.SHINE",
         "True",
         "DEQ.SHINE_FALLBACK",

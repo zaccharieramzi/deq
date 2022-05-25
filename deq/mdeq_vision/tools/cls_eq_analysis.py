@@ -344,7 +344,7 @@ def main():
             image,
             train_step=-1,
             return_result=True,
-            z_0=vanilla_inits[image_index],
+            z_list=vanilla_inits[image_index],
         )
         df_results = fill_df_results(
             df_results,
@@ -362,7 +362,7 @@ def main():
             new_aug_image,
             train_step=-1,
             return_result=True,
-            z_0=aug_inits[image_index],
+            z_list=aug_inits[image_index],
         )
         df_results = fill_df_results(
             df_results,

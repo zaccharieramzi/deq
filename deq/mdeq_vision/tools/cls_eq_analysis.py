@@ -93,9 +93,17 @@ def parse_args():
 
 
 def main():
+    """
+    Set the --percent to make the duration of training vary.
+    Set the --dropout_eval to use dropout during the evaluation.
+    Set the TRAIN.BEGIN_EPOCH for the checkpoint
+    """
     torch.manual_seed(42)
     args = parse_args()
-    torch.multiprocessing.set_start_method('spawn')
+    try:
+        torch.multiprocessing.set_start_method('spawn')
+    except RuntimeError:
+        pass
     if torch.cuda.is_available():
         print(colored("Setting default tensor type to cuda.FloatTensor", "cyan"))
         torch.set_default_tensor_type('torch.cuda.FloatTensor')
@@ -251,7 +259,7 @@ def main():
     ])
 
     def fill_df_results(df_results, result_info,  **data_kwargs):
-        trace = result_info['trace']
+        trace = result_info['rel_trace']
         i_iter = np.arange(len(trace))
         df_trace = pd.DataFrame(data={
             'trace': trace,

@@ -461,7 +461,7 @@ class MDEQNet(nn.Module):
 
         y_list = self.iodrop(vec2list(new_z1, cutoffs))  # this is a no-op
         if return_result:
-            y_list, jac_loss.view(1,-1), sradius.view(-1,1), result
+            return y_list, jac_loss.view(1,-1), sradius.view(-1,1), result
         else:
             return y_list, jac_loss.view(1,-1), sradius.view(-1,1)
 

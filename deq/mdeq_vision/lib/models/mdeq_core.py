@@ -399,6 +399,7 @@ class MDEQNet(nn.Module):
         f_thres = kwargs.get('f_thres', self.f_thres)
         b_thres = kwargs.get('b_thres', self.b_thres)
         z_list = kwargs.get('z_list', None)
+        return_result = kwargs.get('return_result', False)
         x = self.downsample(x)
         rank = get_rank()
 
@@ -435,7 +436,7 @@ class MDEQNet(nn.Module):
         else:
             with torch.no_grad():
                 result = self.f_solver(func, z1, threshold=f_thres, stop_mode=self.stop_mode, name="forward")
-                z1 = result['result']
+                z1 = result.pop('result')
             new_z1 = z1
 
             if (not self.training) and spectral_radius_mode:
@@ -459,7 +460,10 @@ class MDEQNet(nn.Module):
                 self.hook = new_z1.register_hook(backward_hook)
 
         y_list = self.iodrop(vec2list(new_z1, cutoffs))  # this is a no-op
-        return y_list, jac_loss.view(1,-1), sradius.view(-1,1)
+        if return_result:
+            y_list, jac_loss.view(1,-1), sradius.view(-1,1), result
+        else:
+            return y_list, jac_loss.view(1,-1), sradius.view(-1,1)
 
     def forward(self, x, train_step=-1, **kwargs):
         raise NotImplemented    # To be inherited & implemented by MDEQClsNet and MDEQSegNet (see mdeq.py)

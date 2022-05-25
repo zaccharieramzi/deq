@@ -91,7 +91,7 @@ def create_logger(cfg, cfg_name, phase='train', seed=0):
     model = cfg.MODEL.NAME
     cfg_name = os.path.basename(cfg_name).split('.')[0]
 
-    final_output_dir = root_output_dir / dataset / cfg_name + f'_{seed}'
+    final_output_dir = root_output_dir / dataset / (cfg_name + f'_{seed}')
 
     print('=> creating {}'.format(final_output_dir))
     final_output_dir.mkdir(parents=True, exist_ok=True)

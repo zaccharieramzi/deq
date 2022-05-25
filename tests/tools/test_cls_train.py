@@ -33,10 +33,10 @@ def test_cls_train(config):
 def test_cls_train_restart():
     args = [
         "main",
-        "--save_at",
-        "1",
         "--cfg",
         "deq/mdeq_vision/experiments/cifar/cls_mdeq_TINY.yaml",
+        "--save_at",
+        "1",
         "--percent",
         "0.0035",
         "TRAIN.END_EPOCH",
@@ -53,7 +53,7 @@ def test_cls_train_restart():
     with patch("sys.argv", args):
         main()
 
-    args[args.index("save_at")] = "--restart_at"
+    args[args.index("--save_at")] = "--restart_at"
     with patch("sys.argv", args):
         main()
 

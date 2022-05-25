@@ -28,6 +28,7 @@ from deq.mdeq_vision.lib import models  # noqa F401
 from deq.mdeq_vision.lib.config import config
 from deq.mdeq_vision.lib.config import update_config
 from deq.mdeq_vision.lib.core.cls_function import train
+from deq.mdeq_vision.lib.utils.utils import get_optimizer
 from deq.mdeq_vision.lib.utils.utils import create_logger
 
 

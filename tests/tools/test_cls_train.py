@@ -4,7 +4,7 @@ from unittest.mock import patch
 from deq.mdeq_vision.tools.cls_train import main
 
 
-@pytest.mark.parametrize("config",[
+@pytest.mark.parametrize("config", [
     "TINY",
     "LARGE_reg",
 ])

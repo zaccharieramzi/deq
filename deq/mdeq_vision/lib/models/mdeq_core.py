@@ -344,7 +344,7 @@ class MDEQNet(nn.Module):
         if self.wnorm:
             self.fullstage._wnorm()
 
-        self.iodrop = VariationalHidDropout2d(0.0)
+        self.iodrop = VariationalHidDropout2d(0.0)  # this is a no-op
         self.hook = None
 
     def parse_cfg(self, cfg):
@@ -456,7 +456,7 @@ class MDEQNet(nn.Module):
                     return result['result']
                 self.hook = new_z1.register_hook(backward_hook)
 
-        y_list = self.iodrop(vec2list(new_z1, cutoffs))
+        y_list = self.iodrop(vec2list(new_z1, cutoffs))  # this is a no-op
         return y_list, jac_loss.view(1,-1), sradius.view(-1,1)
 
     def forward(self, x, train_step=-1, **kwargs):

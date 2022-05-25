@@ -77,7 +77,10 @@ def parse_args():
 def main():
     torch.manual_seed(42)
     args = parse_args()
-    torch.multiprocessing.set_start_method('spawn')
+    try:
+        torch.multiprocessing.set_start_method('spawn')
+    except RuntimeError:
+        pass
     if torch.cuda.is_available():
         print(colored("Setting default tensor type to cuda.FloatTensor", "cyan"))
         torch.set_default_tensor_type('torch.cuda.FloatTensor')

@@ -14,8 +14,8 @@ on:
       - 'research'
 
 jobs:
-  test:
-    name: Test Code
+  test-scripts:
+    name: Test Scripts
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -46,3 +46,31 @@ jobs:
         pip install .
     - name: Test Train
       run: bash tests/${{matrix.test_suite}}.sh
+
+  test-pytest:
+    name: Test PyTest
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Cache datasets
+      uses: actions/cache@v3
+      env:
+        cache-name: cache-datasets
+      with:
+        path: |
+          data
+        key: build-${{ env.cache-name }}
+        restore-keys: |
+          build-${{ env.cache-name }}
+    - name: Set up Python 3.9
+      uses: actions/setup-python@v2
+      with:
+        python-version: 3.9
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install .
+        pip install pytest
+    - name: Test Train
+      run: pytest tests

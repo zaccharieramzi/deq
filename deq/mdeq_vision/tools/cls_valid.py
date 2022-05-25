@@ -55,6 +55,10 @@ def parse_args():
                         help='percentage of training data to use',
                         type=float,
                         default=1.0)
+    parser.add_argument('--seed',
+                        help='random seed',
+                        type=int,
+                        default=0)
     parser.add_argument('opts',
                         help="Modify config options using the command-line",
                         default=None,
@@ -68,7 +72,7 @@ def main():
     args = parse_args()
 
     logger, final_output_dir, tb_log_dir = create_logger(
-        config, args.cfg, 'valid')
+        config, args.cfg, 'valid', args.seed)
 
     logger.info(pprint.pformat(args))
     logger.info(pprint.pformat(config))

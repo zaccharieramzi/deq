@@ -138,7 +138,7 @@ def broyden(f, x0, threshold, eps=1e-3, stop_mode="rel", ls=False, name="unknown
     else:
         nstep, Us, VTs = init_tensors
         threshold = threshold + nstep
-        orig_nstep = nstep.clone()
+        orig_nstep = nstep
     update = -matvec(Us[:,:,:,:nstep], VTs[:,:nstep], gx)      # Formally should be -torch.matmul(inv_jacobian (-I), gx)
     prot_break = False
 

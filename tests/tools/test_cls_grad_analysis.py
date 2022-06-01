@@ -5,6 +5,7 @@ from deq.mdeq_vision.tools.cls_train import main
 from deq.mdeq_vision.tools.cls_grad_analysis import main as cls_grad_analysis_main
 
 
+@pytest.mark.skip(reason="TODO")
 @pytest.mark.parametrize("config", [
     "TINY",
     "LARGE_reg",

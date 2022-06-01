@@ -457,8 +457,10 @@ class MDEQNet(nn.Module):
                         if torch.cuda.is_available():
                             torch.cuda.synchronize()
                     if grad_init is None:
-                        grad_init = torch.zeros_like(grad)
-                    result_bw = self.b_solver(lambda y: autograd.grad(new_z1, z1, y, retain_graph=True)[0] + grad, grad_init,
+                        grad_init_ = torch.zeros_like(grad)
+                    else:
+                        grad_init_ = grad_init
+                    result_bw = self.b_solver(lambda y: autograd.grad(new_z1, z1, y, retain_graph=True)[0] + grad, grad_init_,
                                           threshold=b_thres, stop_mode=self.stop_mode, name="backward")
                     new_grad = result_bw.pop('result')
                     self.result_bw = result_bw

@@ -125,7 +125,9 @@ def main():
         batch_size=1,
         shuffle=False,
         num_workers=config.WORKERS,
-        pin_memory=True)
+        pin_memory=True,
+        generator=torch.Generator(device='cuda'),
+    )
 
     start = timeit.default_timer()
     if 'val' in config.DATASET.TEST_SET:

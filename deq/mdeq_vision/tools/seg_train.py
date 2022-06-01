@@ -147,7 +147,9 @@ def main():
         num_workers=config.WORKERS,
         pin_memory=True,
         drop_last=True,
-        sampler=train_sampler)
+        sampler=train_sampler,
+        generator=torch.Generator(device='cuda'),
+    )
 
     if config.DATASET.EXTRA_TRAIN_SET:
         extra_train_dataset = eval('datasets.'+config.DATASET.DATASET)(
@@ -175,7 +177,9 @@ def main():
             num_workers=config.WORKERS,
             pin_memory=True,
             drop_last=True,
-            sampler=extra_train_sampler)
+            sampler=extra_train_sampler,
+            generator=torch.Generator(device='cuda'),
+        )
 
     test_size = (config.TEST.IMAGE_SIZE[1], config.TEST.IMAGE_SIZE[0])
     test_dataset = eval('datasets.'+config.DATASET.DATASET)(
@@ -202,7 +206,9 @@ def main():
         shuffle=False,
         num_workers=config.WORKERS,
         pin_memory=True,
-        sampler=test_sampler)
+        sampler=test_sampler,
+        generator=torch.Generator(device='cuda'),
+    )
 
     # criterion
     if config.LOSS.USE_OHEM:

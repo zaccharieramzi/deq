@@ -101,16 +101,16 @@ def train(config, train_loader, model, criterion, optimizer, lr_scheduler, epoch
             stacked_new_inits = []
             for i_scale in range(n_scale):
                 stacked_new_inits.append(torch.cat([
-                    new_inits[i_scale + n_replicas * i_replica].cpu()
+                    new_inits[i_scale + n_replicas * i_replica].clone().cpu()
                     for i_replica in range(n_replicas)
                 ], dim=0))
-            del new_inits
+            del new_inits[:]
             for i_batch, idx in enumerate(indices):
                 warm_inits[idx] = [
                     new_inits[i_scale][i_batch]
                     for i_scale in range(n_scale)
                 ]
-            del stacked_new_inits
+            del stacked_new_inits[:]
         if torch.cuda.is_available():
             target = target.cuda(non_blocking=True)
         loss = criterion(output, target)

@@ -436,8 +436,8 @@ class MDEQNet(nn.Module):
                     jac_loss = jac_loss_estimate(new_z2, z2)
         else:
             with torch.no_grad():
-                result = self.f_solver(func, z1, threshold=f_thres, stop_mode=self.stop_mode, name="forward")
-                z1 = result.pop('result')
+                result_fw = self.f_solver(func, z1, threshold=f_thres, stop_mode=self.stop_mode, name="forward")
+                z1 = result_fw.pop('result')
             new_z1 = z1
 
             if (not self.training) and spectral_radius_mode:
@@ -455,16 +455,16 @@ class MDEQNet(nn.Module):
                         self.hook.remove()
                         if torch.cuda.is_available():
                             torch.cuda.synchronize()
-                    result = self.b_solver(lambda y: autograd.grad(new_z1, z1, y, retain_graph=True)[0] + grad, torch.zeros_like(grad),
+                    result_bw = self.b_solver(lambda y: autograd.grad(new_z1, z1, y, retain_graph=True)[0] + grad, torch.zeros_like(grad),
                                           threshold=b_thres, stop_mode=self.stop_mode, name="backward")
-                    return result['result']
+                    return result_bw['result']
                 self.hook = new_z1.register_hook(backward_hook)
 
         y_list = self.iodrop(vec2list(new_z1, cutoffs))  # this is a no-op
         if new_inits is not None and deq_mode:
             new_inits += y_list
         if return_result:
-            return y_list, jac_loss.view(1,-1), sradius.view(-1,1), result
+            return y_list, jac_loss.view(1,-1), sradius.view(-1,1), result_fw
         else:
             return y_list, jac_loss.view(1,-1), sradius.view(-1,1)
 

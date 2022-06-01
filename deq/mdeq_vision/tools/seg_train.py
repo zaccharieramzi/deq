@@ -159,7 +159,11 @@ def main():
         pin_memory=True,
         drop_last=True,
         sampler=train_sampler,
+<<<<<<< HEAD
         generator=torch.Generator(device=device_str),
+=======
+        generator=torch.Generator(device='cuda'),
+>>>>>>> import-correct
     )
 
     if config.DATASET.EXTRA_TRAIN_SET:
@@ -218,7 +222,11 @@ def main():
         num_workers=config.WORKERS,
         pin_memory=True,
         sampler=test_sampler,
+<<<<<<< HEAD
         generator=torch.Generator(device=device_str),
+=======
+        generator=torch.Generator(device='cuda'),
+>>>>>>> import-correct
     )
 
     # criterion

@@ -399,6 +399,7 @@ class MDEQNet(nn.Module):
         f_thres = kwargs.get('f_thres', self.f_thres)
         b_thres = kwargs.get('b_thres', self.b_thres)
         z_list = kwargs.get('z_list', None)
+        grad_init = kwargs.get('grad_init', None)
         new_inits = kwargs.get('new_inits', None)
         return_result = kwargs.get('return_result', False)
         x = self.downsample(x)
@@ -455,7 +456,9 @@ class MDEQNet(nn.Module):
                         self.hook.remove()
                         if torch.cuda.is_available():
                             torch.cuda.synchronize()
-                    result_bw = self.b_solver(lambda y: autograd.grad(new_z1, z1, y, retain_graph=True)[0] + grad, torch.zeros_like(grad),
+                    if grad_init is None:
+                        grad_init = torch.zeros_like(grad)
+                    result_bw = self.b_solver(lambda y: autograd.grad(new_z1, z1, y, retain_graph=True)[0] + grad, grad_init,
                                           threshold=b_thres, stop_mode=self.stop_mode, name="backward")
                     new_grad = result_bw.pop('result')
                     self.result_bw = result_bw

@@ -59,7 +59,9 @@ def train(config, train_loader, model, criterion, optimizer, lr_scheduler, epoch
                 # position
                 n_scale = len(warm_inits_batch[0])
                 z_list = [
-                    torch.cat([wi[i_scale] for wi in warm_inits_batch], dim=0)
+                    torch.cat([
+                        wi[i_scale] for wi in warm_inits_batch
+                    ], dim=0).to(input)
                     for i_scale in range(n_scale)
                 ]
 
@@ -98,7 +100,7 @@ def train(config, train_loader, model, criterion, optimizer, lr_scheduler, epoch
             n_replicas = len(new_inits) // n_scale
             for i_scale in range(n_scale):
                 new_inits[i_scale] = torch.cat([
-                    new_inits[i_scale + n_replicas * i].to(new_inits[i_scale])
+                    new_inits[i_scale + n_replicas * i].cpu()
                     for i in range(n_replicas)
                 ], dim=0)
             for i_batch, i in enumerate(indices):

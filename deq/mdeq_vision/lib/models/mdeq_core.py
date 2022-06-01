@@ -462,6 +462,7 @@ class MDEQNet(nn.Module):
                                           threshold=b_thres, stop_mode=self.stop_mode, name="backward")
                     new_grad = result_bw.pop('result')
                     self.result_bw = result_bw
+                    self.new_grad = new_grad.detach().clone().cpu()
                     return new_grad
                 self.hook = new_z1.register_hook(backward_hook)
 

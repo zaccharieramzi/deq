@@ -49,8 +49,11 @@ def train(config, train_loader, model, criterion, optimizer, lr_scheduler, epoch
         else:
             input, target, indices = batch
             new_inits = []
-            if warm_inits:
+            try:
                 warm_inits_batch = [warm_inits[idx] for idx in indices]
+            except KeyError:
+                z_list = None
+            else:
                 # in z_list we concatenate all the warm inits elements per
                 # position
                 n_scale = len(warm_inits_batch[0])
@@ -58,8 +61,6 @@ def train(config, train_loader, model, criterion, optimizer, lr_scheduler, epoch
                     torch.cat([wi[i_scale] for wi in warm_inits_batch], dim=0)
                     for i_scale in range(n_scale)
                 ]
-            else:
-                z_list = None
 
         # measure data loading time
         data_time.update(time.time() - end)
@@ -92,8 +93,12 @@ def train(config, train_loader, model, criterion, optimizer, lr_scheduler, epoch
             new_inits=new_inits,
         )
         if warm_inits is not None:
+            n_scale = len(new_inits)
             for i_batch, i in enumerate(indices):
-                warm_inits[i] = [new_inits[i_scale][i_batch] for i_scale in range(n_scale)]
+                warm_inits[i] = [
+                    new_inits[i_scale][i_batch]
+                    for i_scale in range(n_scale)
+                ]
         if torch.cuda.is_available():
             target = target.cuda(non_blocking=True)
         loss = criterion(output, target)

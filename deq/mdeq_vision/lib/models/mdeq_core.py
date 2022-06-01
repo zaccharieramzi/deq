@@ -457,7 +457,9 @@ class MDEQNet(nn.Module):
                             torch.cuda.synchronize()
                     result_bw = self.b_solver(lambda y: autograd.grad(new_z1, z1, y, retain_graph=True)[0] + grad, torch.zeros_like(grad),
                                           threshold=b_thres, stop_mode=self.stop_mode, name="backward")
-                    return result_bw['result']
+                    new_grad = result_bw.pop('result')
+                    self.result_bw = result_bw
+                    return new_grad
                 self.hook = new_z1.register_hook(backward_hook)
 
         y_list = self.iodrop(vec2list(new_z1, cutoffs))  # this is a no-op

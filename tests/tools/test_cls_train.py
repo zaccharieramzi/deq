@@ -29,3 +29,25 @@ def test_cls_train(config):
     ]
     with patch("sys.argv", args):
         main()
+
+
+def test_cls_train_warm_init():
+    args = [
+        "main",
+        "--cfg",
+        f"deq/mdeq_vision/experiments/cifar/cls_mdeq_TINY_warm.yaml",
+        "TRAIN.END_EPOCH",
+        "2",
+        "TRAIN.PRETRAIN_STEPS",
+        "0",
+        "DEQ.F_THRES",
+        "1",
+        "DEQ.B_THRES",
+        "1",
+        "MODEL.NUM_LAYERS",
+        "1",
+        "MODEL.EXTRA.FULL_STAGE.FINAL_CHANSIZE",
+        "10",
+    ]
+    with patch("sys.argv", args):
+        main()

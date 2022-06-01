@@ -41,7 +41,7 @@ def test_cls_train_warm_init():
     args = [
         "main",
         "--cfg",
-        f"deq/mdeq_vision/experiments/cifar/cls_mdeq_TINY_warm.yaml",
+        "deq/mdeq_vision/experiments/cifar/cls_mdeq_TINY_warm.yaml",
         "TRAIN.END_EPOCH",
         "2",
         "TRAIN.PRETRAIN_STEPS",

@@ -8,6 +8,7 @@ import logging
 import random
 import sys
 import time
+from types import new_class
 
 import numpy as np
 import torch
@@ -93,7 +94,13 @@ def train(config, train_loader, model, criterion, optimizer, lr_scheduler, epoch
             new_inits=new_inits,
         )
         if warm_inits is not None:
-            n_scale = len(new_inits)
+            n_scale = config.MODEL.EXTRA.FULL_STAGE.NUM_BRANCHES
+            n_replicas = len(new_class) // n_scale
+            for i_scale in range(n_scale):
+                new_inits[i_scale] = torch.cat([
+                    new_inits[i_scale + n_replicas * i]
+                    for i in range(n_replicas)
+                ], dim=0)
             for i_batch, i in enumerate(indices):
                 warm_inits[i] = [
                     new_inits[i_scale][i_batch]

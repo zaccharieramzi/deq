@@ -107,7 +107,7 @@ def train(config, train_loader, model, criterion, optimizer, lr_scheduler, epoch
             del new_inits[:]
             for i_batch, idx in enumerate(indices):
                 warm_inits[idx] = [
-                    new_inits[i_scale][i_batch]
+                    stacked_new_inits[i_scale][i_batch]
                     for i_scale in range(n_scale)
                 ]
             del stacked_new_inits[:]

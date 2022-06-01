@@ -44,8 +44,20 @@ def train(config, train_loader, model, criterion, optimizer, lr_scheduler, epoch
 
         if warm_inits is None:
             input, target = batch
+            z_list = None
         else:
             input, target, indices = batch
+            if warm_inits:
+                warm_inits_batch = [warm_inits[idx] for idx in indices]
+                # in z_list we concatenate all the warm inits elements per
+                # position
+                n_scale = len(warm_inits_batch[0])
+                z_list = [
+                    torch.cat([wi[i_scale] for wi in warm_inits_batch], dim=0)
+                    for i_scale in range(n_scale)
+                ]
+            else:
+                z_list = None
 
         # measure data loading time
         data_time.update(time.time() - end)
@@ -67,9 +79,15 @@ def train(config, train_loader, model, criterion, optimizer, lr_scheduler, epoch
         delta_f_thres = torch.randint(-config.DEQ.RAND_F_THRES_DELTA,2,[]).item() if (config.DEQ.RAND_F_THRES_DELTA > 0 and compute_jac_loss) else 0
         f_thres = config.DEQ.F_THRES + delta_f_thres
         b_thres = config.DEQ.B_THRES
-        output, jac_loss, _ = model(input, train_step=(lr_scheduler._step_count-1),
-                                    compute_jac_loss=compute_jac_loss,
-                                    f_thres=f_thres, b_thres=b_thres, writer=writer)
+        output, jac_loss, _ = model(
+            input,
+            train_step=(lr_scheduler._step_count-1),
+            compute_jac_loss=compute_jac_loss,
+            z_list=z_list,
+            f_thres=f_thres,
+            b_thres=b_thres,
+            writer=writer,
+        )
         if torch.cuda.is_available():
             target = target.cuda(non_blocking=True)
         loss = criterion(output, target)

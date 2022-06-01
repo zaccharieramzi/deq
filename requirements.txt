@@ -1,4 +1,5 @@
 pandas
+protobuf~=3.19.0
 tensorboard
 torch>=1.10
 torchvision>=0.4.0

@@ -399,6 +399,7 @@ class MDEQNet(nn.Module):
         f_thres = kwargs.get('f_thres', self.f_thres)
         b_thres = kwargs.get('b_thres', self.b_thres)
         z_list = kwargs.get('z_list', None)
+        new_inits = kwargs.get('new_inits', None)
         return_result = kwargs.get('return_result', False)
         x = self.downsample(x)
         rank = get_rank()
@@ -460,6 +461,8 @@ class MDEQNet(nn.Module):
                 self.hook = new_z1.register_hook(backward_hook)
 
         y_list = self.iodrop(vec2list(new_z1, cutoffs))  # this is a no-op
+        if new_inits is not None:
+            new_inits += y_list
         if return_result:
             return y_list, jac_loss.view(1,-1), sradius.view(-1,1), result
         else:

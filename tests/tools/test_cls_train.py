@@ -34,7 +34,7 @@ def test_cls_train(config):
 
 
 @pytest.mark.skipif(
-    os.environ['CI'],
+    os.environ.get('CI', False),
     reason='The full warm init test is too long for CI',
 )
 def test_cls_train_warm_init():

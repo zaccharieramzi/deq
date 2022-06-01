@@ -180,14 +180,16 @@ def main():
         batch_size=config.TRAIN.BATCH_SIZE_PER_GPU*len(gpus),
         shuffle=True,
         num_workers=config.WORKERS,
-        pin_memory=True
+        pin_memory=True,
+        generator=torch.Generator(device='cuda'),
     )
     valid_loader = torch.utils.data.DataLoader(
         valid_dataset,
         batch_size=config.TEST.BATCH_SIZE_PER_GPU*len(gpus),
         shuffle=False,
         num_workers=config.WORKERS,
-        pin_memory=True
+        pin_memory=True,
+        generator=torch.Generator(device='cuda'),
     )
 
     # Learning rate scheduler

@@ -134,6 +134,7 @@ _C.TRAIN.MODEL_FILE = ''
 
 _C.TRAIN.BATCH_SIZE_PER_GPU = 32
 _C.TRAIN.SHUFFLE = True
+_C.TRAIN.WARM_INIT = False
 
 # testing
 _C.TEST = CN()
@@ -190,10 +191,10 @@ def update_config(cfg, args):
 
     if args.testModel:
         cfg.TEST.MODEL_FILE = args.testModel
-    
+
     if args.percent < 1:
         cfg.PERCENT = args.percent
-        
+
     cfg.merge_from_list(args.opts)
 
     cfg.freeze()

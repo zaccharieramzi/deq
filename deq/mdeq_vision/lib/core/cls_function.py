@@ -98,7 +98,7 @@ def train(config, train_loader, model, criterion, optimizer, lr_scheduler, epoch
             n_replicas = len(new_inits) // n_scale
             for i_scale in range(n_scale):
                 new_inits[i_scale] = torch.cat([
-                    new_inits[i_scale + n_replicas * i]
+                    new_inits[i_scale + n_replicas * i].to(new_inits[i_scale])
                     for i in range(n_replicas)
                 ], dim=0)
             for i_batch, i in enumerate(indices):

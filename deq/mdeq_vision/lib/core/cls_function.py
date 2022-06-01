@@ -93,7 +93,7 @@ def train(config, train_loader, model, criterion, optimizer, lr_scheduler, epoch
             writer=writer,
             new_inits=new_inits,
         )
-        if warm_inits is not None:
+        if warm_inits is not None and new_inits:
             n_scale = config.MODEL.EXTRA.FULL_STAGE.NUM_BRANCHES
             n_replicas = len(new_inits) // n_scale
             for i_scale in range(n_scale):

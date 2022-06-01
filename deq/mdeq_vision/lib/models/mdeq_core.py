@@ -464,7 +464,7 @@ class MDEQNet(nn.Module):
 
         y_list = self.iodrop(vec2list(new_z1, cutoffs))  # this is a no-op
         if new_inits is not None and deq_mode:
-            new_inits += y_list
+            new_inits += [yl.detach().clone() for yl in y_list]
         if return_result:
             return y_list, jac_loss.view(1,-1), sradius.view(-1,1), result_fw
         else:

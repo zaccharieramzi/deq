@@ -103,11 +103,13 @@ def train(config, train_loader, model, criterion, optimizer, lr_scheduler, epoch
                     new_inits[i_scale + n_replicas * i].cpu()
                     for i in range(n_replicas)
                 ], dim=0)
+            new_inits = new_inits[:n_scale]
             for i_batch, i in enumerate(indices):
                 warm_inits[i] = [
                     new_inits[i_scale][i_batch]
                     for i_scale in range(n_scale)
                 ]
+            del new_inits
         if torch.cuda.is_available():
             target = target.cuda(non_blocking=True)
         loss = criterion(output, target)

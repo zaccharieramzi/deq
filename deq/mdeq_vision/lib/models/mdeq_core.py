@@ -403,6 +403,7 @@ class MDEQNet(nn.Module):
         return_result = kwargs.get('return_result', False)
         x = self.downsample(x)
         rank = get_rank()
+        deq_mode = (train_step < 0) or (train_step >= self.pretrain_steps)
 
         # Inject only to the highest resolution...
         x_list = [self.stage0(x) if self.stage0 else x]
@@ -410,7 +411,7 @@ class MDEQNet(nn.Module):
             bsz, _, H, W = x_list[-1].shape
             x_list.append(torch.zeros(bsz, self.num_channels[i], H//2, W//2).to(x))   # ... and the rest are all zeros
 
-        if z_list is None:
+        if z_list is None or not deq_mode:
             z_list = [torch.zeros_like(elem) for elem in x_list]
         z1 = list2vec(z_list)
         cutoffs = [(elem.size(1), elem.size(2), elem.size(3)) for elem in z_list]
@@ -421,7 +422,6 @@ class MDEQNet(nn.Module):
 
         jac_loss = torch.tensor(0.0).to(x)
         sradius = torch.zeros(bsz, 1).to(x)
-        deq_mode = (train_step < 0) or (train_step >= self.pretrain_steps)
 
         # Multiscale Deep Equilibrium!
         if not deq_mode:
@@ -461,7 +461,7 @@ class MDEQNet(nn.Module):
                 self.hook = new_z1.register_hook(backward_hook)
 
         y_list = self.iodrop(vec2list(new_z1, cutoffs))  # this is a no-op
-        if new_inits is not None:
+        if new_inits is not None and deq_mode:
             new_inits += y_list
         if return_result:
             return y_list, jac_loss.view(1,-1), sradius.view(-1,1), result

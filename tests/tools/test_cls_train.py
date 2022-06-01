@@ -1,3 +1,5 @@
+import os
+
 import pytest
 from unittest.mock import patch
 
@@ -31,6 +33,10 @@ def test_cls_train(config):
         main()
 
 
+@pytest.mark.skipif(
+    os.environ['CI'],
+    reason='The full warm init test is too long for CI',
+)
 def test_cls_train_warm_init():
     args = [
         "main",

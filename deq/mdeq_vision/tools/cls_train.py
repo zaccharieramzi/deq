@@ -201,6 +201,8 @@ def main():
         # in order to have a map from the indices to the warm inits
         train_dataset = IndexedDataset(train_dataset)
         warm_inits = {}
+    else:
+        warm_inits = None
 
     batch_size = config.TRAIN.BATCH_SIZE_PER_GPU
     test_batch_size = config.TEST.BATCH_SIZE_PER_GPU

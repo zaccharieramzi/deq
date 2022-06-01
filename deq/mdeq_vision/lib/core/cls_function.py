@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 
 def train(config, train_loader, model, criterion, optimizer, lr_scheduler, epoch,
-          output_dir, tb_log_dir, writer_dict=None, topk=(1,5)):
+          output_dir, tb_log_dir, writer_dict=None, topk=(1,5), warm_inits=None):
     batch_time = AverageMeter()
     data_time = AverageMeter()
     losses = AverageMeter()
@@ -38,9 +38,14 @@ def train(config, train_loader, model, criterion, optimizer, lr_scheduler, epoch
     end = time.time()
     total_batch_num = len(train_loader)
     effec_batch_num = int(config.PERCENT * total_batch_num)
-    for i, (input, target) in enumerate(train_loader):
+    for i, batch in enumerate(train_loader):
         # train on partial training data
         if i >= effec_batch_num: break
+
+        if warm_inits is None:
+            input, target = batch
+        else:
+            input, target, indices = batch
 
         # measure data loading time
         data_time.update(time.time() - end)

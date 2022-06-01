@@ -26,6 +26,7 @@ from deq.mdeq_vision.lib import models
 from deq.mdeq_vision.lib.config import config
 from deq.mdeq_vision.lib.config import update_config
 from deq.mdeq_vision.lib.core.cls_function import train, validate
+from deq.mdeq_vision.lib.datasets.indexed_dataset import IndexedDataset
 from deq.mdeq_vision.lib.utils.modelsummary import get_model_summary
 from deq.mdeq_vision.lib.utils.utils import get_optimizer
 from deq.mdeq_vision.lib.utils.utils import save_checkpoint
@@ -195,6 +196,12 @@ def main():
         train_dataset = datasets.CIFAR10(root=f'{config.DATASET.ROOT}', train=True, download=True, transform=transform_train)
         valid_dataset = datasets.CIFAR10(root=f'{config.DATASET.ROOT}', train=False, download=True, transform=transform_valid)
 
+    if config.TRAIN.WARM_INIT:
+        # this is where we modify the dataset to include the indices
+        # in order to have a map from the indices to the warm inits
+        train_dataset = IndexedDataset(train_dataset)
+        warm_inits = {}
+
     batch_size = config.TRAIN.BATCH_SIZE_PER_GPU
     test_batch_size = config.TEST.BATCH_SIZE_PER_GPU
     if torch.cuda.is_available():
@@ -243,7 +250,7 @@ def main():
 
         # train for one epoch
         train(config, train_loader, model, criterion, optimizer, lr_scheduler, epoch,
-              final_output_dir, tb_log_dir, writer_dict, topk=topk)
+              final_output_dir, tb_log_dir, writer_dict, topk=topk, warm_inits=warm_inits)
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
 

@@ -222,11 +222,7 @@ def main():
         num_workers=config.WORKERS,
         pin_memory=True,
         sampler=test_sampler,
-<<<<<<< HEAD
         generator=torch.Generator(device=device_str),
-=======
-        generator=torch.Generator(device='cuda'),
->>>>>>> import-correct
     )
 
     # criterion

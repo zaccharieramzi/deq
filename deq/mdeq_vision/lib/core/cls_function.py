@@ -95,7 +95,7 @@ def train(config, train_loader, model, criterion, optimizer, lr_scheduler, epoch
         )
         if warm_inits is not None:
             n_scale = config.MODEL.EXTRA.FULL_STAGE.NUM_BRANCHES
-            n_replicas = len(new_class) // n_scale
+            n_replicas = len(new_inits) // n_scale
             for i_scale in range(n_scale):
                 new_inits[i_scale] = torch.cat([
                     new_inits[i_scale + n_replicas * i]

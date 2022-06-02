@@ -79,10 +79,6 @@ def main():
 
     model = eval('models.'+config.MODEL.NAME+'.get_cls_net')(config)
 
-    if torch.cuda.is_available():
-        gpus = list(config.GPUS)
-        model = torch.nn.DataParallel(model, device_ids=gpus).cuda()
-
     if config.TEST.MODEL_FILE:
         logger.info('=> loading model from {}'.format(config.TEST.MODEL_FILE))
         model_state_file = config.TEST.MODEL_FILE
@@ -98,6 +94,10 @@ def main():
             map_location='cpu',
         ))
         device_str = 'cpu'
+
+    if torch.cuda.is_available():
+        gpus = list(config.GPUS)
+        model = torch.nn.DataParallel(model, device_ids=gpus).cuda()
 
 
     # define loss function (criterion) and optimizer

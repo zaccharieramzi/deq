@@ -46,10 +46,8 @@ def train(config, train_loader, model, criterion, optimizer, lr_scheduler, epoch
         if warm_inits is None:
             input, target = batch
             z1 = None
-            new_inits = None
         else:
             input, target, indices = batch
-            new_inits = []
             try:
                 warm_inits_batch = [warm_inits[idx] for idx in indices]
             except KeyError:

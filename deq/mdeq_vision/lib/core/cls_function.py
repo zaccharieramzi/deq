@@ -164,7 +164,8 @@ def validate(config, val_loader, model, criterion, lr_scheduler, epoch, output_d
         effec_batch_num = int(config.PERCENT * total_batch_num)
         for i, (input, target) in enumerate(val_loader):
             # eval on partial data as well for debugging purposes
-            if i >= effec_batch_num: break
+            if i >= effec_batch_num and config.PERCENT < 1.0:
+                break
 
             # compute output
             output, _, sradius = model(input,

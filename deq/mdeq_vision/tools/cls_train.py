@@ -253,6 +253,9 @@ def main():
         # train for one epoch
         train(config, train_loader, model, criterion, optimizer, lr_scheduler, epoch,
               final_output_dir, tb_log_dir, writer_dict, topk=topk, warm_inits=warm_inits)
+        print('='*10)
+        print('Len of warm inits', len(warm_inits))
+        print('='*10)
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
 

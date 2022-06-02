@@ -470,8 +470,11 @@ class MDEQNet(nn.Module):
 
         y_list = self.iodrop(vec2list(new_z1, cutoffs))  # this is a no-op
         return_objects = (y_list, jac_loss.view(1, -1), sradius.view(-1, 1))
-        if return_inits and deq_mode:
-            new_inits = [yl.detach().clone() for yl in y_list]
+        if return_inits:
+            if deq_mode:
+                new_inits = [yl.detach().clone() for yl in y_list]
+            else:
+                new_inits = None
             return *return_objects, new_inits
         if return_result:
             return *return_objects, result_fw

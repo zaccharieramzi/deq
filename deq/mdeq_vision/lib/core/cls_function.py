@@ -91,7 +91,6 @@ def train(config, train_loader, model, criterion, optimizer, lr_scheduler, epoch
         if warm_inits is not None and new_inits is not None:
             for i_batch, idx in enumerate(indices):
                 warm_inits[idx] = new_inits[i_batch].cpu()
-            del new_inits[:]
         if torch.cuda.is_available():
             target = target.cuda(non_blocking=True)
         loss = criterion(output, target)

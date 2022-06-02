@@ -41,7 +41,7 @@ DEQ:
   F_SOLVER: 'broyden'
   B_SOLVER: 'broyden'
   STOP_MODE: 'rel'
-  F_THRES: 18
+  F_THRES: 9
   B_THRES: 20
   SPECTRAL_RADIUS_MODE: false
 CUDNN:

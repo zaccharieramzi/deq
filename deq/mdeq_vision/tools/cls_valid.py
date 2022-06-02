@@ -79,6 +79,9 @@ def main():
 
     model = eval('models.'+config.MODEL.NAME+'.get_cls_net')(config)
 
+    gpus = list(config.GPUS)
+    model = torch.nn.DataParallel(model, device_ids=gpus).cuda()
+
     if config.TEST.MODEL_FILE:
         logger.info('=> loading model from {}'.format(config.TEST.MODEL_FILE))
         model.load_state_dict(torch.load(config.TEST.MODEL_FILE))
@@ -87,8 +90,6 @@ def main():
         logger.info('=> loading model from {}'.format(model_state_file))
         model.load_state_dict(torch.load(model_state_file))
 
-    gpus = list(config.GPUS)
-    model = torch.nn.DataParallel(model, device_ids=gpus).cuda()
 
     # define loss function (criterion) and optimizer
     criterion = torch.nn.CrossEntropyLoss().cuda()

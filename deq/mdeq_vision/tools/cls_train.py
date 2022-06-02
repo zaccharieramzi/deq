@@ -262,6 +262,7 @@ def main():
               final_output_dir, tb_log_dir, writer_dict, topk=topk, warm_inits=warm_inits)
         print('='*10)
         print('Len of warm inits', len(warm_inits))
+        print('Max item in warm inits', max(warm_inits.keys()))
         print('='*10)
         if torch.cuda.is_available():
             torch.cuda.empty_cache()

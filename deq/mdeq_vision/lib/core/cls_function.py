@@ -49,7 +49,10 @@ def train(config, train_loader, model, criterion, optimizer, lr_scheduler, epoch
         else:
             input, target, indices = batch
             try:
-                warm_inits_batch = [warm_inits[idx] for idx in indices]
+                warm_inits_batch = [
+                    warm_inits[idx.cpu().numpy().item()]
+                    for idx in indices
+                ]
             except KeyError:
                 z1 = None
             else:
@@ -90,7 +93,7 @@ def train(config, train_loader, model, criterion, optimizer, lr_scheduler, epoch
         )
         if warm_inits is not None and new_inits is not None:
             for i_batch, idx in enumerate(indices):
-                warm_inits[idx] = new_inits[i_batch].cpu()
+                warm_inits[idx.cpu().numpy().item()] = new_inits[i_batch].cpu()
         if torch.cuda.is_available():
             target = target.cuda(non_blocking=True)
         loss = criterion(output, target)

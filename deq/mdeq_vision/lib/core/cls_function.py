@@ -54,7 +54,7 @@ def train(config, train_loader, model, criterion, optimizer, lr_scheduler, epoch
                 z1 = None
             else:
                 # in z1 we concatenate all the warm inits elements
-                z1 = torch.cat(warm_inits_batch, dim=0)
+                z1 = torch.cat(warm_inits_batch, dim=0).to(input)
 
         # measure data loading time
         data_time.update(time.time() - end)

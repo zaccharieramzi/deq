@@ -65,6 +65,12 @@ def parse_args():
 
 def main():
     args = parse_args()
+    try:
+        torch.multiprocessing.set_start_method('spawn')
+    except RuntimeError:
+        pass
+    if torch.cuda.is_available():
+        torch.set_default_tensor_type('torch.cuda.FloatTensor')
 
     logger, final_output_dir, tb_log_dir = create_logger(
         config, args.cfg, 'valid')

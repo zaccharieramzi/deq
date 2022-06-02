@@ -74,7 +74,9 @@ def train(config, train_loader, model, criterion, optimizer, lr_scheduler, epoch
             factor = config.LOSS.JAC_LOSS_WEIGHT + 0.1 * (deq_steps // update_freq)
         compute_jac_loss = (torch.rand([]).item() < config.LOSS.JAC_LOSS_FREQ) and (factor > 0)
         delta_f_thres = torch.randint(-config.DEQ.RAND_F_THRES_DELTA,2,[]).item() if (config.DEQ.RAND_F_THRES_DELTA > 0 and compute_jac_loss) else 0
-        f_thres = config.DEQ.F_THRES + delta_f_thres
+        f_thres = max(config.DEQ.F_THRES + delta_f_thres, 1)
+        if warm_inits is not None and z1 is None:
+            f_thres *= 2
         b_thres = config.DEQ.B_THRES
         output, jac_loss, _, new_inits = model(
             input,

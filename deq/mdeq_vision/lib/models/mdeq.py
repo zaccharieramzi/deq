@@ -149,8 +149,8 @@ class MDEQClsNet(MDEQNet):
         return y
 
     def forward(self, x, train_step=0, **kwargs):
-        y_list, jac_loss, sradius = self._forward(x, train_step, **kwargs)
-        return self.predict(y_list), jac_loss, sradius
+        y_list, *other_returns = self._forward(x, train_step, **kwargs)
+        return self.predict(y_list), *other_returns
 
     def init_weights(self, pretrained='',):
         """
@@ -213,8 +213,8 @@ class MDEQSegNet(MDEQNet):
         return y
 
     def forward(self, x, train_step=0, **kwargs):
-        y, jac_loss, sradius = self._forward(x, train_step, **kwargs)
-        return self.segment(y), jac_loss, sradius
+        y, *other_returns = self._forward(x, train_step, **kwargs)
+        return self.segment(y), *other_returns
 
     def init_weights(self, pretrained=''):
         """

@@ -400,7 +400,7 @@ class MDEQNet(nn.Module):
         b_thres = kwargs.get('b_thres', self.b_thres)
         z_list = kwargs.get('z_list', None)
         grad_init = kwargs.get('grad_init', None)
-        new_inits = kwargs.get('new_inits', None)
+        return_inits = kwargs.get('return_inits', False)
         return_result = kwargs.get('return_result', False)
         x = self.downsample(x)
         rank = get_rank()
@@ -469,12 +469,14 @@ class MDEQNet(nn.Module):
                 self.hook = new_z1.register_hook(backward_hook)
 
         y_list = self.iodrop(vec2list(new_z1, cutoffs))  # this is a no-op
-        if new_inits is not None and deq_mode:
-            new_inits += [yl.detach().clone() for yl in y_list]
+        return_objects = (y_list, jac_loss.view(1, -1), sradius.view(-1, 1))
+        if return_inits and deq_mode:
+            new_inits = [yl.detach().clone() for yl in y_list]
+            return *return_objects, new_inits
         if return_result:
-            return y_list, jac_loss.view(1,-1), sradius.view(-1,1), result_fw
+            return *return_objects, result_fw
         else:
-            return y_list, jac_loss.view(1,-1), sradius.view(-1,1)
+            return return_objects
 
     def forward(self, x, train_step=-1, **kwargs):
         raise NotImplemented    # To be inherited & implemented by MDEQClsNet and MDEQSegNet (see mdeq.py)

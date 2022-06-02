@@ -79,10 +79,6 @@ def main():
 
     model = eval('models.'+config.MODEL.NAME+'.get_cls_net')(config)
 
-    if torch.cuda.is_available():
-        gpus = list(config.GPUS)
-        model = torch.nn.DataParallel(model, device_ids=gpus).cuda()
-
     if config.TEST.MODEL_FILE:
         logger.info('=> loading model from {}'.format(config.TEST.MODEL_FILE))
         model_state_file = config.TEST.MODEL_FILE
@@ -90,15 +86,24 @@ def main():
         model_state_file = os.path.join(final_output_dir, 'final_state.pth.tar')
         logger.info('=> loading model from {}'.format(model_state_file))
     if torch.cuda.is_available():
-        model.load_state_dict(torch.load(model_state_file))
+        state_dict = torch.load(model_state_file)
         device_str = 'cuda'
     else:
-        model.load_state_dict(torch.load(
+        state_dict = torch.load(
             model_state_file,
             map_location='cpu',
-        ))
+        )
         device_str = 'cpu'
 
+    try:
+        model.load_state_dict(state_dict)
+    except RuntimeError:
+        # loading from a checkpoint and not the final state
+        model.load_state_dict(state_dict['state_dict'])
+
+    if torch.cuda.is_available():
+        gpus = list(config.GPUS)
+        model = torch.nn.DataParallel(model, device_ids=gpus).cuda()
 
     # define loss function (criterion) and optimizer
     criterion = torch.nn.CrossEntropyLoss()

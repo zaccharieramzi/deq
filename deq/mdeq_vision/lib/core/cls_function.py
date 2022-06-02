@@ -45,7 +45,7 @@ def train(config, train_loader, model, criterion, optimizer, lr_scheduler, epoch
 
         if warm_inits is None:
             input, target = batch
-            z_list = None
+            z1 = None
             new_inits = None
         else:
             input, target, indices = batch
@@ -53,17 +53,11 @@ def train(config, train_loader, model, criterion, optimizer, lr_scheduler, epoch
             try:
                 warm_inits_batch = [warm_inits[idx] for idx in indices]
             except KeyError:
-                z_list = None
+                z1 = None
             else:
-                # in z_list we concatenate all the warm inits elements per
-                # position
+                # in z1 we concatenate all the warm inits elements
                 n_scale = len(warm_inits_batch[0])
-                z_list = [
-                    torch.cat([
-                        wi[i_scale] for wi in warm_inits_batch
-                    ], dim=0).to(input)
-                    for i_scale in range(n_scale)
-                ]
+                z1 = torch.cat(warm_inits_batch, dim=0)
 
         # measure data loading time
         data_time.update(time.time() - end)
@@ -85,32 +79,23 @@ def train(config, train_loader, model, criterion, optimizer, lr_scheduler, epoch
         delta_f_thres = torch.randint(-config.DEQ.RAND_F_THRES_DELTA,2,[]).item() if (config.DEQ.RAND_F_THRES_DELTA > 0 and compute_jac_loss) else 0
         f_thres = config.DEQ.F_THRES + delta_f_thres
         b_thres = config.DEQ.B_THRES
-        output, jac_loss, _ = model(
+        output, jac_loss, _, new_inits = model(
             input,
             train_step=(lr_scheduler._step_count-1),
             compute_jac_loss=compute_jac_loss,
-            z_list=z_list,
+            z1=z1,
             f_thres=f_thres,
             b_thres=b_thres,
             writer=writer,
-            new_inits=new_inits,
+            return_inits=True,
         )
-        if warm_inits is not None and new_inits:
-            n_scale = config.MODEL.EXTRA.FULL_STAGE.NUM_BRANCHES
-            n_replicas = len(new_inits) // n_scale
-            stacked_new_inits = []
-            for i_scale in range(n_scale):
-                stacked_new_inits.append(torch.cat([
-                    new_inits[i_scale + n_replicas * i_replica].clone().cpu()
-                    for i_replica in range(n_replicas)
-                ], dim=0))
-            del new_inits[:]
+        if warm_inits is not None and new_inits is not None:
             for i_batch, idx in enumerate(indices):
                 warm_inits[idx] = [
-                    stacked_new_inits[i_scale][i_batch]
+                    new_inits[i_batch].cpu()
                     for i_scale in range(n_scale)
                 ]
-            del stacked_new_inits[:]
+            del new_inits[:]
         if torch.cuda.is_available():
             target = target.cuda(non_blocking=True)
         loss = criterion(output, target)

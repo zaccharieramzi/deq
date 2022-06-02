@@ -399,6 +399,7 @@ class MDEQNet(nn.Module):
         f_thres = kwargs.get('f_thres', self.f_thres)
         b_thres = kwargs.get('b_thres', self.b_thres)
         z_list = kwargs.get('z_list', None)
+        z1 = kwargs.get('z1', None)
         grad_init = kwargs.get('grad_init', None)
         return_inits = kwargs.get('return_inits', False)
         return_result = kwargs.get('return_result', False)
@@ -414,7 +415,8 @@ class MDEQNet(nn.Module):
 
         if z_list is None or not deq_mode:
             z_list = [torch.zeros_like(elem) for elem in x_list]
-        z1 = list2vec(z_list)
+        if z1 is None or not deq_mode:
+            z1 = list2vec(z_list)
         cutoffs = [(elem.size(1), elem.size(2), elem.size(3)) for elem in z_list]
         func = lambda z: list2vec(self.fullstage(vec2list(z, cutoffs), x_list))
 
@@ -472,7 +474,7 @@ class MDEQNet(nn.Module):
         return_objects = (y_list, jac_loss.view(1, -1), sradius.view(-1, 1))
         if return_inits:
             if deq_mode:
-                new_inits = [yl.detach().clone() for yl in y_list]
+                new_inits = new_z1.detach().clone()
             else:
                 new_inits = None
             return *return_objects, new_inits

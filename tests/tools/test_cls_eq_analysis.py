@@ -23,9 +23,9 @@ def test_cls_eq(config):
         "TRAIN.PRETRAIN_STEPS",
         "1",
         "DEQ.F_THRES",
-        "5",
+        "2",
         "DEQ.B_THRES",
-        "5",
+        "2",
         "MODEL.NUM_LAYERS",
         "2",
     ]
@@ -34,6 +34,8 @@ def test_cls_eq(config):
 
     args += [
         "TRAIN.BEGIN_EPOCH",
+        "1",
+        "--n_images",
         "1",
     ]
     with patch("sys.argv", args):

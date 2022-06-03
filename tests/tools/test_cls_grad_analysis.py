@@ -5,7 +5,6 @@ from deq.mdeq_vision.tools.cls_train import main
 from deq.mdeq_vision.tools.cls_grad_analysis import main as cls_grad_analysis_main
 
 
-@pytest.mark.skip(reason="TODO")
 @pytest.mark.parametrize("config", [
     "TINY",
     "LARGE_reg",
@@ -24,9 +23,9 @@ def test_cls_grad(config):
         "TRAIN.PRETRAIN_STEPS",
         "1",
         "DEQ.F_THRES",
-        "5",
+        "2",
         "DEQ.B_THRES",
-        "5",
+        "2",
         "MODEL.NUM_LAYERS",
         "2",
     ]
@@ -35,6 +34,8 @@ def test_cls_grad(config):
 
     args += [
         "TRAIN.BEGIN_EPOCH",
+        "1",
+        "--n_images",
         "1",
     ]
     with patch("sys.argv", args):

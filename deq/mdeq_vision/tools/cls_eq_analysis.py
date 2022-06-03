@@ -272,7 +272,7 @@ def main():
     ])
 
     def fill_df_results(df_results, result_info,  **data_kwargs):
-        n_step = result_info['n_step']
+        n_step = result_info['nstep']
         trace = result_info['rel_trace'][:n_step]
         abs_trace = result_info['abs_trace'][:n_step]
         i_iter = np.arange(n_step)

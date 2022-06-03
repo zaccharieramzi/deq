@@ -273,7 +273,7 @@ def main():
     for image_index in image_indices:
         image, target = train_dataset[image_index]
         image = image.unsqueeze(0)
-        target = target.unsqueeze(0)
+        target = torch.tensor(target).unsqueeze(0)
         if torch.cuda.is_available():
             image = image.cuda()
             target
@@ -333,7 +333,7 @@ def main():
     for image_index in image_indices:
         image, target = train_dataset[image_index]
         image = image.unsqueeze(0)
-        target = target.unsqueeze(0)
+        target = torch.tensor(target).unsqueeze(0)
         if torch.cuda.is_available():
             image = image.cuda()
             target = target.cuda()

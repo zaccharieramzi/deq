@@ -69,6 +69,10 @@ def parse_args():
                         help='restart training at a checkpoint',
                         type=int,
                         default=None)
+    parser.add_argument('--seed',
+                        help='random seed',
+                        type=int,
+                        default=None)
     parser.add_argument('opts',
                         help="Modify config options using the command-line",
                         default=None,
@@ -80,8 +84,10 @@ def parse_args():
     return args
 
 def main():
-    torch.manual_seed(42)
     args = parse_args()
+    seed = args.seed
+    seeding = seed is not None
+    torch.manual_seed(seed if seeding else 42)
     try:
         torch.multiprocessing.set_start_method('spawn')
     except RuntimeError:
@@ -96,12 +102,18 @@ def main():
     logger, final_output_dir, tb_log_dir = create_logger(
         config, args.cfg, 'train')
 
+    if seeding:
+        logger.info(f'Using seeding with seed {seed}')
     logger.info(pprint.pformat(args))
     logger.info(pprint.pformat(config))
 
     # cudnn related setting
-    cudnn.benchmark = config.CUDNN.BENCHMARK
-    torch.backends.cudnn.deterministic = config.CUDNN.DETERMINISTIC
+    if not seeding:
+        cudnn.benchmark = config.CUDNN.BENCHMARK
+        torch.backends.cudnn.deterministic = config.CUDNN.DETERMINISTIC
+    else:
+        cudnn.benchmark = False
+        torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.enabled = config.CUDNN.ENABLED
 
     model = eval('models.'+config.MODEL.NAME+'.get_cls_net')(config)
@@ -141,6 +153,8 @@ def main():
     last_epoch = config.TRAIN.BEGIN_EPOCH
     if config.TRAIN.RESUME:
         checkpoint_name = 'checkpoint'
+        if seeding:
+            checkpoint_name += f'_seed{seed}'
         if args.restart_at:
             checkpoint_name += f'_{args.restart_at}'
         model_state_file = os.path.join(final_output_dir, f'{checkpoint_name}.pth.tar')
@@ -280,10 +294,13 @@ def main():
             best_model = False
 
         logger.info('=> saving checkpoint to {}'.format(final_output_dir))
-        checkpoint_files = ['checkpoint.pth.tar']
+        base_checkpoint_name = 'checkpoint'
+        if seeding:
+            base_checkpoint_name += f'_seed{seed}'
+        checkpoint_files = [f'{base_checkpoint_name}.pth.tar']
         save_at = args.save_at
         if save_at and epoch in save_at:
-            checkpoint_files.append(f'checkpoint_{epoch}.pth.tar')
+            checkpoint_files.append(f'{base_checkpoint_name}_{epoch}.pth.tar')
         for checkpoint_file in checkpoint_files:
             save_checkpoint({
                 'epoch': epoch + 1,
@@ -295,7 +312,13 @@ def main():
                 'train_global_steps': writer_dict['train_global_steps'],
             }, best_model, final_output_dir, filename=checkpoint_file)
 
-    final_model_state_file = os.path.join(final_output_dir, 'final_state.pth.tar')
+    base_final_state_name = 'final_state'
+    if seeding:
+        base_final_state_name += f'_seed{seed}'
+    final_model_state_file = os.path.join(
+        final_output_dir,
+        f'{base_final_state_name}.pth.tar',
+    )
     logger.info('saving final model state to {}'.format(final_model_state_file))
     state_dict = model.module.state_dict() if torch.cuda.is_available() else model.state_dict()
     torch.save(state_dict, final_model_state_file)

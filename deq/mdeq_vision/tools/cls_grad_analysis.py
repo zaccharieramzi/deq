@@ -299,10 +299,15 @@ def main():
             target = target.cuda(non_blocking=True)
         loss = criterion(output, target)
         loss.backward()
-        vanilla_inits[image_index] = model.new_grad
+        if device_str == 'cuda':
+            vanilla_inits[image_index] = model.model.new_grad.detach().clone()
+            results = model.model.result_bw
+        else:
+            vanilla_inits[image_index] = model.new_grad.detach().clone()
+            results = model.result_bw
         df_results = fill_df_results(
             df_results,
-            model.result_bw,
+            results,
             image_index=image_index,
             before_training=True,
             init_type=None,
@@ -315,7 +320,10 @@ def main():
         output, *_ = model(aug_image, train_step=-1)
         loss = criterion(output, target)
         loss.backward()
-        aug_inits[image_index] = model.new_grad
+        if device_str == 'cuda':
+            aug_inits[image_index] = model.model.new_grad.detach().clone()
+        else:
+            aug_inits[image_index] = model.new_grad.detach().clone()
 
     # Training code
     topk = (1, 5) if dataset_name == 'imagenet' else (1,)
@@ -358,7 +366,7 @@ def main():
         loss.backward()
         df_results = fill_df_results(
             df_results,
-            model.result_bw,
+            model.result_bw if device_str == 'cpu' else model.model.result_bw,
             image_index=image_index,
             before_training=False,
             init_type=None,
@@ -373,7 +381,7 @@ def main():
         loss.backward()
         df_results = fill_df_results(
             df_results,
-            model.result_bw,
+            model.result_bw if device_str == 'cpu' else model.model.result_bw,
             image_index=image_index,
             before_training=False,
             init_type='vanilla',
@@ -392,7 +400,7 @@ def main():
         loss.backward()
         df_results = fill_df_results(
             df_results,
-            model.result_bw,
+            model.result_bw if device_str == 'cpu' else model.model.result_bw,
             image_index=image_index,
             before_training=False,
             init_type='aug',

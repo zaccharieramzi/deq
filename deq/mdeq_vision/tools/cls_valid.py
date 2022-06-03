@@ -54,6 +54,10 @@ def parse_args():
                         help='percentage of training data to use',
                         type=float,
                         default=1.0)
+    parser.add_argument('--seed',
+                        help='random seed',
+                        type=int,
+                        default=None)
     parser.add_argument('opts',
                         help="Modify config options using the command-line",
                         default=None,
@@ -65,6 +69,8 @@ def parse_args():
 
 def main():
     args = parse_args()
+    seed = args.seed
+    seeding = seed is not None
     try:
         torch.multiprocessing.set_start_method('spawn')
     except RuntimeError:
@@ -89,7 +95,13 @@ def main():
         logger.info('=> loading model from {}'.format(config.TEST.MODEL_FILE))
         model_state_file = config.TEST.MODEL_FILE
     else:
-        model_state_file = os.path.join(final_output_dir, 'final_state.pth.tar')
+        base_final_state_name = 'final_state'
+        if seeding:
+            base_final_state_name += f'_seed{seed}'
+        model_state_file = os.path.join(
+            final_output_dir,
+            f'{base_final_state_name}.pth.tar',
+        )
         logger.info('=> loading model from {}'.format(model_state_file))
     if torch.cuda.is_available():
         state_dict = torch.load(model_state_file)

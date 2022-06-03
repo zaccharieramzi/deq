@@ -74,6 +74,10 @@ def parse_args():
                         help='number of images to use for evaluation',
                         type=int,
                         default=10)
+    parser.add_argument('--seed',
+                        help='random seed',
+                        type=int,
+                        default=None)
     parser.add_argument('opts',
                         help="Modify config options using the command-line",
                         default=None,
@@ -90,8 +94,10 @@ def main():
     Set the --percent to make the duration of training vary.
     Set the TRAIN.BEGIN_EPOCH for the checkpoint
     """
-    torch.manual_seed(42)
     args = parse_args()
+    seed = args.seed
+    seeding = seed is not None
+    torch.manual_seed(seed if seeding else 42)
     try:
         torch.multiprocessing.set_start_method('spawn')
     except RuntimeError:
@@ -110,8 +116,12 @@ def main():
     logger.info(pprint.pformat(config))
 
     # cudnn related setting
-    cudnn.benchmark = config.CUDNN.BENCHMARK
-    torch.backends.cudnn.deterministic = config.CUDNN.DETERMINISTIC
+    if not seeding:
+        cudnn.benchmark = config.CUDNN.BENCHMARK
+        torch.backends.cudnn.deterministic = config.CUDNN.DETERMINISTIC
+    else:
+        cudnn.benchmark = False
+        torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.enabled = config.CUDNN.ENABLED
 
     model = eval('models.'+config.MODEL.NAME+'.get_cls_net')(config)
@@ -140,7 +150,13 @@ def main():
     lr_scheduler = None
 
     last_epoch = config.TRAIN.BEGIN_EPOCH
-    model_state_file = os.path.join(final_output_dir, f'checkpoint_{last_epoch}.pth.tar')
+    checkpoint_name = 'checkpoint'
+    if seeding:
+        checkpoint_name += f'_seed{seed}'
+    model_state_file = os.path.join(
+        final_output_dir,
+        f'{checkpoint_name}_{last_epoch}.pth.tar',
+    )
     if torch.cuda.is_available():
         checkpoint = torch.load(model_state_file)
         model.module.load_state_dict(checkpoint['state_dict'])

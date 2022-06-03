@@ -23,7 +23,6 @@ import torchvision.datasets as datasets
 import torchvision.transforms as transforms
 from torch.utils.tensorboard import SummaryWriter
 
-from deq.lib.optimizations import VariationalHidDropout2d
 from deq.mdeq_vision.lib import models  # noqa F401
 from deq.mdeq_vision.lib.config import config
 from deq.mdeq_vision.lib.config import update_config
@@ -32,10 +31,10 @@ from deq.mdeq_vision.lib.utils.utils import get_optimizer
 from deq.mdeq_vision.lib.utils.utils import create_logger
 
 
-def set_dropout_modules_active(model):
+def set_batch_norm_modules_inactive(model):
     for m in model.modules():
-        if isinstance(m, VariationalHidDropout2d):
-            m.train()
+        if isinstance(m, nn.BatchNorm2d):
+            m.eval()
 
 
 def parse_args():
@@ -254,8 +253,8 @@ def main():
     writer_dict['train_global_steps'] = last_epoch * len(aug_train_loader)
 
     # Evaluating convergence before training
-    model.eval()
-    set_dropout_modules_active(model)
+    model.train()
+    set_batch_norm_modules_inactive(model)
     df_results = pd.DataFrame(columns=[
         'image_index',
         'before_training',
@@ -346,7 +345,7 @@ def main():
         writer_dict['writer'].close()
 
     model.eval()
-    set_dropout_modules_active(model)
+    set_batch_norm_modules_inactive(model)
     for image_index in image_indices:
         image, target = train_dataset[image_index]
         image = image.unsqueeze(0)

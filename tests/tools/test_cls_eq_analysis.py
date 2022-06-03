@@ -35,8 +35,7 @@ def test_cls_eq(config):
     args += [
         "TRAIN.BEGIN_EPOCH",
         "1",
-        "--n_images",
-        "1",
     ]
+    args[1] = "--n_images"
     with patch("sys.argv", args):
         cls_eq_analysis_main()

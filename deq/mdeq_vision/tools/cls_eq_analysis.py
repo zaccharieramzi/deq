@@ -256,9 +256,10 @@ def main():
     ])
 
     def fill_df_results(df_results, result_info,  **data_kwargs):
-        trace = result_info['rel_trace']
-        abs_trace = result_info['abs_trace']
-        i_iter = np.arange(len(trace))
+        n_step = result_info['n_step']
+        trace = result_info['rel_trace'][:n_step]
+        abs_trace = result_info['abs_trace'][:n_step]
+        i_iter = np.arange(n_step)
         df_trace = pd.DataFrame(data={
             'trace': trace,
             'abs_trace': abs_trace,

@@ -300,8 +300,8 @@ def main():
         loss = criterion(output, target)
         loss.backward()
         if device_str == 'cuda':
-            vanilla_inits[image_index] = model.model.new_grad.detach().clone()
-            results = model.model.result_bw
+            vanilla_inits[image_index] = model.module.new_grad.detach().clone()
+            results = model.module.result_bw
         else:
             vanilla_inits[image_index] = model.new_grad.detach().clone()
             results = model.result_bw
@@ -321,7 +321,7 @@ def main():
         loss = criterion(output, target)
         loss.backward()
         if device_str == 'cuda':
-            aug_inits[image_index] = model.model.new_grad.detach().clone()
+            aug_inits[image_index] = model.module.new_grad.detach().clone()
         else:
             aug_inits[image_index] = model.new_grad.detach().clone()
 
@@ -366,7 +366,7 @@ def main():
         loss.backward()
         df_results = fill_df_results(
             df_results,
-            model.result_bw if device_str == 'cpu' else model.model.result_bw,
+            model.result_bw if device_str == 'cpu' else model.module.result_bw,
             image_index=image_index,
             before_training=False,
             init_type=None,
@@ -381,7 +381,7 @@ def main():
         loss.backward()
         df_results = fill_df_results(
             df_results,
-            model.result_bw if device_str == 'cpu' else model.model.result_bw,
+            model.result_bw if device_str == 'cpu' else model.module.result_bw,
             image_index=image_index,
             before_training=False,
             init_type='vanilla',
@@ -400,7 +400,7 @@ def main():
         loss.backward()
         df_results = fill_df_results(
             df_results,
-            model.result_bw if device_str == 'cpu' else model.model.result_bw,
+            model.result_bw if device_str == 'cpu' else model.module.result_bw,
             image_index=image_index,
             before_training=False,
             init_type='aug',

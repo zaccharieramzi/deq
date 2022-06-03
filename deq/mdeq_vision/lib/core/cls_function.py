@@ -8,7 +8,6 @@ import logging
 import random
 import sys
 import time
-from types import new_class
 
 import numpy as np
 import torch

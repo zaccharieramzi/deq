@@ -32,8 +32,11 @@ from deq.mdeq_vision.lib.utils.utils import get_optimizer
 from deq.mdeq_vision.lib.utils.utils import create_logger
 
 
-def set_modules_inactive(model):
-    inactive_types = (nn.BatchNorm2d, VariationalHidDropout)
+def set_modules_inactive(model, dropout=False):
+    inactive_types = [nn.BatchNorm2d]
+    if dropout:
+        inactive_types.append(VariationalHidDropout)
+    inactive_types = tuple(inactive_types)
     for m in model.modules():
         if isinstance(m, inactive_types):
             m.eval()
@@ -75,6 +78,9 @@ def parse_args():
                         help='number of images to use for evaluation',
                         type=int,
                         default=10)
+    parser.add_argument('--dropout_eval',
+                        help='whether to use dropout during the evaluation',
+                        action='store_true')
     parser.add_argument('--seed',
                         help='random seed',
                         type=int,
@@ -256,7 +262,7 @@ def main():
 
     # Evaluating convergence before training
     model.train()
-    set_modules_inactive(model)
+    set_modules_inactive(model, dropout=args.dropout_eval)
     df_results = pd.DataFrame(columns=[
         'image_index',
         'before_training',
@@ -355,7 +361,7 @@ def main():
         writer_dict['writer'].close()
 
     model.train()
-    set_modules_inactive(model)
+    set_modules_inactive(model, dropout=args.dropout_eval)
     for image_index in image_indices:
         image, target = train_dataset[image_index]
         image = image.unsqueeze(0)
@@ -412,6 +418,8 @@ def main():
     percent = args.percent * 100
     results_name = f'grad_eq_init_results_{dataset_name}_{model_size}_{percent}'
     results_name += f'_ckpt{last_epoch}'
+    if args.dropout_eval:
+        results_name += '_dropout'
     df_results.to_csv(
         f'{results_name}.csv',
     )

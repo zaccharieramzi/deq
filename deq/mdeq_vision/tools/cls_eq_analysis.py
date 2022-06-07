@@ -393,6 +393,8 @@ def main():
             is_aug=True,
         )
     model_size = Path(args.cfg).stem[9:]
+    if seeding:
+        model_size += f'_seed{args.seed}'
     percent = args.percent * 100
     results_name = f'eq_init_results_{dataset_name}_{model_size}_{percent}'
     results_name += f'_ckpt{last_epoch}'

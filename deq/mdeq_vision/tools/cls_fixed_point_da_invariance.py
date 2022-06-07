@@ -241,7 +241,7 @@ def main():
             relative_mse_fixed_points,
             mse_logits,
             relative_mse_logits,
-        ) = [t.cpu().numpy().item() for t in (
+        ) = [t.detach().cpu().numpy().item() for t in (
             mse_fixed_points,
             relative_mse_fixed_points,
             mse_logits,
@@ -258,7 +258,7 @@ def main():
             'checkpoint': last_epoch,
             'model_size': model_size,
             'dataset': dataset_name,
-        })
+        }, ignore_index=True)
 
     results_name = 'fixed_point_invariance_results.csv'
     write_header = not Path(results_name).is_file()

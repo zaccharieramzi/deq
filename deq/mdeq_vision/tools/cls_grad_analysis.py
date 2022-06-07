@@ -352,7 +352,7 @@ def main():
     if writer_dict['writer'] is not None:
         writer_dict['writer'].close()
 
-    model.eval()
+    model.train()
     set_batch_norm_modules_inactive(model)
     for image_index in image_indices:
         image, target = train_dataset[image_index]

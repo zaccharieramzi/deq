@@ -23,6 +23,7 @@ import torchvision.datasets as datasets
 import torchvision.transforms as transforms
 from torch.utils.tensorboard import SummaryWriter
 
+from deq.lib.optimizations import VariationalHidDropout
 from deq.mdeq_vision.lib import models  # noqa F401
 from deq.mdeq_vision.lib.config import config
 from deq.mdeq_vision.lib.config import update_config
@@ -31,9 +32,10 @@ from deq.mdeq_vision.lib.utils.utils import get_optimizer
 from deq.mdeq_vision.lib.utils.utils import create_logger
 
 
-def set_batch_norm_modules_inactive(model):
+def set_modules_inactive(model):
+    inactive_types = (nn.BatchNorm2d, VariationalHidDropout)
     for m in model.modules():
-        if isinstance(m, nn.BatchNorm2d):
+        if isinstance(m, inactive_types):
             m.eval()
 
 
@@ -254,7 +256,7 @@ def main():
 
     # Evaluating convergence before training
     model.train()
-    set_batch_norm_modules_inactive(model)
+    set_modules_inactive(model)
     df_results = pd.DataFrame(columns=[
         'image_index',
         'before_training',
@@ -353,7 +355,7 @@ def main():
         writer_dict['writer'].close()
 
     model.train()
-    set_batch_norm_modules_inactive(model)
+    set_modules_inactive(model)
     for image_index in image_indices:
         image, target = train_dataset[image_index]
         image = image.unsqueeze(0)

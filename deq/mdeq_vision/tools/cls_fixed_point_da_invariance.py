@@ -57,6 +57,10 @@ def parse_args():
                         help='testModel',
                         type=str,
                         default='')
+    parser.add_argument('--percent',
+                        help='percentage of training data to use',
+                        type=float,
+                        default=1.0)
     parser.add_argument('--dropout_eval',
                         help='whether to use dropout during the evaluation',
                         action='store_true')

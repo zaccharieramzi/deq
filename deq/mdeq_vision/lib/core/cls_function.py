@@ -45,6 +45,7 @@ def train(config, train_loader, model, criterion, optimizer, lr_scheduler, epoch
         if warm_inits is None:
             input, target = batch
             z1 = None
+            init_tensors = None
         else:
             input, target, indices = batch
             try:

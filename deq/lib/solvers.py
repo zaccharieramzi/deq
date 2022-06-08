@@ -4,7 +4,7 @@ import torch
 from torch import nn
 import torch.nn.functional as functional
 from torch.autograd import Function
-import numpy as np 
+import numpy as np
 import pickle
 import sys
 import os
@@ -83,7 +83,7 @@ def line_search(update, x0, g0, g, nstep=0, on=True):
             tmp_g0[0] = g0_new
             tmp_phi[0] = phi_new
         return phi_new
-    
+
     if on:
         s, phi1, ite = scalar_search_armijo(phi, tmp_phi[0], -tmp_phi[0], amin=1e-2)
     if (not on) or s is None:
@@ -119,23 +119,32 @@ def matvec(part_Us, part_VTs, x):
     return -x + torch.einsum('bijd, bd -> bij', part_Us, VTx)     # (N, 2d, L'), but should really be (N, (2d*L'), 1)
 
 
-def broyden(f, x0, threshold, eps=1e-3, stop_mode="rel", ls=False, name="unknown"):
+def broyden(f, x0, threshold, eps=1e-3, stop_mode="rel", ls=False, name="unknown", init_tensors=None):
     bsz, total_hsize, seq_len = x0.size()
     g = lambda y: f(y) - y
     dev = x0.device
     alternative_mode = 'rel' if stop_mode == 'abs' else 'abs'
-    
+
     x_est = x0           # (bsz, 2d, L')
     gx = g(x_est)        # (bsz, 2d, L')
     nstep = 0
     tnstep = 0
-    
+
     # For fast calculation of inv_jacobian (approximately)
-    Us = torch.zeros(bsz, total_hsize, seq_len, threshold).to(dev)     # One can also use an L-BFGS scheme to further reduce memory
-    VTs = torch.zeros(bsz, threshold, total_hsize, seq_len).to(dev)
+    if init_tensors is None:
+        nstep = 0
+        orig_nstep = 0
+        max_dim = threshold
+        Us = torch.zeros(bsz, total_hsize, seq_len, threshold).to(dev)     # One can also use an L-BFGS scheme to further reduce memory
+        VTs = torch.zeros(bsz, threshold, total_hsize, seq_len).to(dev)
+    else:
+        nstep, Us, VTs = init_tensors
+        threshold = threshold + nstep
+        max_dim = Us.shape[-1]
+        orig_nstep = nstep
     update = -matvec(Us[:,:,:,:nstep], VTs[:,:nstep], gx)      # Formally should be -torch.matmul(inv_jacobian (-I), gx)
     prot_break = False
-    
+
     # To be used in protective breaks
     protect_thres = (1e6 if stop_mode == "abs" else 1e3) * seq_len
     new_objective = 1e8
@@ -148,7 +157,7 @@ def broyden(f, x0, threshold, eps=1e-3, stop_mode="rel", ls=False, name="unknown
                         'rel': 0}
     nstep, lowest_xest, lowest_gx = 0, x_est, gx
 
-    while nstep < threshold:
+    while nstep - orig_nstep < threshold:
         x_est, gx, delta_x, delta_gx, ite = line_search(update, x_est, gx, g, nstep=nstep, on=ls)
         nstep += 1
         tnstep += (ite+1)
@@ -160,14 +169,14 @@ def broyden(f, x0, threshold, eps=1e-3, stop_mode="rel", ls=False, name="unknown
         trace_dict['rel'].append(rel_diff)
         for mode in ['rel', 'abs']:
             if diff_dict[mode] < lowest_dict[mode]:
-                if mode == stop_mode: 
+                if mode == stop_mode:
                     lowest_xest, lowest_gx = x_est.clone().detach(), gx.clone().detach()
                 lowest_dict[mode] = diff_dict[mode]
-                lowest_step_dict[mode] = nstep
+                lowest_step_dict[mode] = nstep - orig_nstep
 
         new_objective = diff_dict[stop_mode]
         if new_objective < eps: break
-        if new_objective < 3*eps and nstep > 30 and np.max(trace_dict[stop_mode][-30:]) / np.min(trace_dict[stop_mode][-30:]) < 1.3:
+        if new_objective < 3*eps and nstep > (30 + orig_nstep) and np.max(trace_dict[stop_mode][-30:]) / np.min(trace_dict[stop_mode][-30:]) < 1.3:
             # if there's hardly been any progress in the last 30 steps
             break
         if new_objective > trace_dict[stop_mode][0] * protect_thres:
@@ -179,8 +188,8 @@ def broyden(f, x0, threshold, eps=1e-3, stop_mode="rel", ls=False, name="unknown
         u = (delta_x - matvec(part_Us, part_VTs, delta_gx)) / torch.einsum('bij, bij -> b', vT, delta_gx)[:,None,None]
         vT[vT != vT] = 0
         u[u != u] = 0
-        VTs[:,nstep-1] = vT
-        Us[:,:,:,nstep-1] = u
+        VTs[:, (nstep-1) % max_dim] = vT
+        Us[..., (nstep-1) % max_dim] = u
         update = -matvec(Us[:,:,:,:nstep], VTs[:,:nstep], gx)
 
     # Fill everything up to the threshold length
@@ -206,7 +215,7 @@ def anderson(f, x0, m=6, lam=1e-4, threshold=50, eps=1e-3, stop_mode='rel', beta
     F = torch.zeros(bsz, m, d*L, dtype=x0.dtype, device=x0.device)
     X[:,0], F[:,0] = x0.reshape(bsz, -1), f(x0).reshape(bsz, -1)
     X[:,1], F[:,1] = F[:,0], f(F[:,0].reshape_as(x0)).reshape(bsz, -1)
-    
+
     H = torch.zeros(bsz, m+1, m+1, dtype=x0.dtype, device=x0.device)
     H[:,0,1:] = H[:,1:,0] = 1
     y = torch.zeros(bsz, m+1, 1, dtype=x0.dtype, device=x0.device)
@@ -224,7 +233,7 @@ def anderson(f, x0, m=6, lam=1e-4, threshold=50, eps=1e-3, stop_mode='rel', beta
         G = F[:,:n]-X[:,:n]
         H[:,1:n+1,1:n+1] = torch.bmm(G,G.transpose(1,2)) + lam*torch.eye(n, dtype=x0.dtype,device=x0.device)[None]
         alpha = torch.solve(y[:,:n+1], H[:,:n+1,:n+1])[0][:, 1:n+1, 0]   # (bsz x n)
-        
+
         X[:,k%m] = beta * (alpha[:,None] @ F[:,:n])[:,0] + (1-beta)*(alpha[:,None] @ X[:,:n])[:,0]
         F[:,k%m] = f(X[:,k%m].reshape_as(x0)).reshape(bsz, -1)
         gx = (F[:,k%m] - X[:,k%m]).view_as(x0)
@@ -234,10 +243,10 @@ def anderson(f, x0, m=6, lam=1e-4, threshold=50, eps=1e-3, stop_mode='rel', beta
                      'rel': rel_diff}
         trace_dict['abs'].append(abs_diff)
         trace_dict['rel'].append(rel_diff)
-        
+
         for mode in ['rel', 'abs']:
             if diff_dict[mode] < lowest_dict[mode]:
-                if mode == stop_mode: 
+                if mode == stop_mode:
                     lowest_xest, lowest_gx =  X[:,k%m].view_as(x0).clone().detach(), gx.clone().detach()
                 lowest_dict[mode] = diff_dict[mode]
                 lowest_step_dict[mode] = k
@@ -274,30 +283,30 @@ def analyze_broyden(res_info, err=None, judge=True, name='forward', training=Tru
     threshold = res_info['threshold']
     if judge:
         return nstep >= threshold or (nstep == 0 and (diff != diff or diff > eps)) or prot_break or torch.isnan(res_est).any()
-    
+
     assert (err is not None), "Must provide err information when not in judgment mode"
     prefix, color = ('', 'red') if name == 'forward' else ('back_', 'blue')
     eval_prefix = '' if training else 'eval_'
-    
+
     # Case 1: A nan entry is produced in Broyden
     if torch.isnan(res_est).any():
         msg = colored(f"WARNING: nan found in Broyden's {name} result. Diff: {diff}", color)
         print(msg)
         if save_err: pickle.dump(err, open(f'{prefix}{eval_prefix}nan.pkl', 'wb'))
         return (1, msg, res_info)
-        
+
     # Case 2: Unknown problem with Broyden's method (probably due to nan update(s) to the weights)
     if nstep == 0 and (diff != diff or diff > eps):
         msg = colored(f"WARNING: Bad Broyden's method {name}. Why?? Diff: {diff}. STOP.", color)
         print(msg)
         if save_err: pickle.dump(err, open(f'{prefix}{eval_prefix}badbroyden.pkl', 'wb'))
         return (2, msg, res_info)
-        
+
     # Case 3: Protective break during Broyden (so that it does not diverge to infinity)
     if prot_break and np.random.uniform(0,1) < 0.05:
         msg = colored(f"WARNING: Hit Protective Break in {name}. Diff: {diff}. Total Iter: {len(trace)}", color)
         print(msg)
         if save_err: pickle.dump(err, open(f'{prefix}{eval_prefix}prot_break.pkl', 'wb'))
         return (3, msg, res_info)
-        
+
     return (-1, '', res_info)

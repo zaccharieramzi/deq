@@ -156,7 +156,7 @@ def broyden(f, x0, threshold, eps=1e-3, stop_mode="rel", ls=False, name="unknown
                         'rel': 0}
     nstep, lowest_xest, lowest_gx = 0, x_est, gx
 
-    while nstep < threshold:
+    while nstep - orig_nstep < threshold:
         x_est, gx, delta_x, delta_gx, ite = line_search(update, x_est, gx, g, nstep=nstep, on=ls)
         nstep += 1
         tnstep += (ite+1)
@@ -171,7 +171,7 @@ def broyden(f, x0, threshold, eps=1e-3, stop_mode="rel", ls=False, name="unknown
                 if mode == stop_mode:
                     lowest_xest, lowest_gx = x_est.clone().detach(), gx.clone().detach()
                 lowest_dict[mode] = diff_dict[mode]
-                lowest_step_dict[mode] = nstep
+                lowest_step_dict[mode] = nstep - orig_nstep
 
         new_objective = diff_dict[stop_mode]
         if new_objective < eps: break

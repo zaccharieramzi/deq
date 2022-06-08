@@ -201,6 +201,8 @@ def broyden(f, x0, threshold, eps=1e-3, stop_mode="rel", ls=False, name="unknown
             "lowest": lowest_dict[stop_mode],
             "nstep": lowest_step_dict[stop_mode],
             "prot_break": prot_break,
+            "Us": Us,
+            "VTs": VTs,
             "abs_trace": trace_dict['abs'],
             "rel_trace": trace_dict['rel'],
             "eps": eps,

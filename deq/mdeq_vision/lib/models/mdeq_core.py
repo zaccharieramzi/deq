@@ -400,6 +400,7 @@ class MDEQNet(nn.Module):
         b_thres = kwargs.get('b_thres', self.b_thres)
         z_list = kwargs.get('z_list', None)
         z1 = kwargs.get('z1', None)
+        init_tensors = kwargs.get('init_tensors', None)
         grad_init = kwargs.get('grad_init', None)
         return_inits = kwargs.get('return_inits', False)
         return_result = kwargs.get('return_result', False)
@@ -439,7 +440,14 @@ class MDEQNet(nn.Module):
                     jac_loss = jac_loss_estimate(new_z2, z2)
         else:
             with torch.no_grad():
-                result_fw = self.f_solver(func, z1, threshold=f_thres, stop_mode=self.stop_mode, name="forward")
+                result_fw = self.f_solver(
+                    func,
+                    z1,
+                    threshold=f_thres,
+                    stop_mode=self.stop_mode,
+                    name="forward",
+                    init_tensors=init_tensors,
+                )
                 z1 = result_fw.pop('result')
             new_z1 = z1
 
@@ -474,7 +482,12 @@ class MDEQNet(nn.Module):
         return_objects = (y_list, jac_loss.view(1, -1), sradius.view(-1, 1))
         if return_inits:
             if deq_mode:
-                new_inits = new_z1.detach().clone()
+                new_inits = [
+                    new_z1.detach().clone(),
+                    result_fw['Us'],
+                    result_fw['VTs'],
+                    result_fw['nstep'],
+                ]
             else:
                 new_inits = None
             return *return_objects, new_inits

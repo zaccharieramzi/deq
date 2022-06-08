@@ -218,7 +218,7 @@ def main():
         if torch.cuda.is_available():
             image = image.cuda()
         # pot in kwargs we can have: f_thres, b_thres, lim_mem
-        vanilla_logits, *_, vanilla_z1 = fn(
+        vanilla_logits, *_, [vanilla_z1, *_] = fn(
             image,
             train_step=-1,
             return_inits=True,
@@ -227,7 +227,7 @@ def main():
         aug_image = aug_image.unsqueeze(0)
         if torch.cuda.is_available():
             aug_image = aug_image.cuda()
-        aug_logits, *_, aug_z1 = fn(
+        aug_logits, *_, [aug_z1, *_] = fn(
             aug_image,
             train_step=-1,
             return_inits=True,

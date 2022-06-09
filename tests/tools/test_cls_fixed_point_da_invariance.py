@@ -11,7 +11,7 @@ from deq.mdeq_vision.tools.cls_fixed_point_da_invariance import (
     "TINY",
     "LARGE_reg",
 ])
-def test_cls_eq(config):
+def test_cls_fdpi(config):
     args = [
         "main",
         "--save_at",
@@ -41,3 +41,5 @@ def test_cls_eq(config):
     args[1] = "--n_images"
     with patch("sys.argv", args):
         fpdi_main()
+
+

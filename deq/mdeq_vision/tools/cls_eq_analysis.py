@@ -8,6 +8,7 @@ import argparse
 import os
 from pathlib import Path
 import pprint
+import time
 
 import numpy as np
 import pandas as pd
@@ -73,6 +74,9 @@ def parse_args():
     parser.add_argument('--dropout_eval',
                         help='whether to use dropout during the evaluation',
                         action='store_true')
+    parser.add_argument('--broyden_matrices',
+                        help='whether to use broyden matrices when doing warm init',
+                        action='store_true')
     parser.add_argument('--n_images',
                         help='number of images to use for evaluation',
                         type=int,
@@ -96,6 +100,7 @@ def main():
     """
     Set the --percent to make the duration of training vary.
     Set the --dropout_eval to use dropout during the evaluation.
+    Set the --broyden_matrices to use broyden matrices when doing warm init.
     Set the TRAIN.BEGIN_EPOCH for the checkpoint
     """
     args = parse_args()
@@ -269,7 +274,26 @@ def main():
         'init_type',
         'is_aug',
         'i_iter',
+        'analysis_time',
+        'seed',
+        'dataset',
+        'model_size',
+        'checkpoint',
+        'dropout',
+        'percent',
+        'broyden_matrices',
     ])
+    model_size = Path(args.cfg).stem[9:]
+    common_args = dict(
+        model_size=model_size,
+        dataset=dataset_name,
+        checkpoint=last_epoch,
+        seed=args.seed,
+        analysis_time=time.time(),
+        dropout=args.dropout_eval,
+        percent=args.percent_eval*100,
+        broyden_matrices=args.broyden_matrices,
+    )
 
     def fill_df_results(df_results, result_info,  **data_kwargs):
         n_step = result_info['nstep']
@@ -281,6 +305,7 @@ def main():
             'abs_trace': abs_trace,
             'i_iter': i_iter,
             **data_kwargs,
+            **common_args,
         })
         df_results = df_results.append(df_trace, ignore_index=True)
         return df_results
@@ -300,7 +325,12 @@ def main():
             image = image.cuda()
         # pot in kwargs we can have: f_thres, b_thres, lim_mem
         y_list, *_, result_info = fn(image, train_step=-1, return_result=True)
-        vanilla_inits[image_index] = y_list
+        vanilla_inits[image_index] = {
+            'y_list': y_list,
+            'Us': result_info['Us'],
+            'VTs': result_info['VTs'],
+            'nstep': result_info['nstep'],
+        }
         df_results = fill_df_results(
             df_results,
             result_info,
@@ -313,8 +343,13 @@ def main():
         aug_image = aug_image.unsqueeze(0)
         if torch.cuda.is_available():
             aug_image = aug_image.cuda()
-        aug_y_list, *_ = fn(aug_image, train_step=-1)
-        aug_inits[image_index] = aug_y_list
+        aug_y_list, *_, result_info = fn(aug_image, train_step=-1, return_result=True)
+        aug_inits[image_index] = {
+            'y_list': aug_y_list,
+            'Us': result_info['Us'],
+            'VTs': result_info['VTs'],
+            'nstep': result_info['nstep'],
+        }
 
     # Training code
     topk = (1, 5) if dataset_name == 'imagenet' else (1,)
@@ -360,11 +395,21 @@ def main():
             init_type=None,
             is_aug=False,
         )
+        add_kwargs_vanilla = {}
+        add_kwargs_aug = {}
+        if args.broyden_matrices:
+            for add_kwargs, inits in zip([add_kwargs_vanilla, add_kwargs_aug], [vanilla_inits, aug_inits]):
+                init_tensors = [
+                    inits[image_index][k]
+                    for k in ['nstep', 'Us', 'VTs']
+                ]
+                add_kwargs['init_tensors'] = init_tensors
         *_, result = fn(
             image,
             train_step=-1,
             return_result=True,
-            z_list=vanilla_inits[image_index],
+            z_list=vanilla_inits[image_index]['y_list'],
+            **add_kwargs_vanilla,
         )
         df_results = fill_df_results(
             df_results,
@@ -382,7 +427,8 @@ def main():
             new_aug_image,
             train_step=-1,
             return_result=True,
-            z_list=aug_inits[image_index],
+            z_list=aug_inits[image_index]['y_list'],
+            **add_kwargs_aug,
         )
         df_results = fill_df_results(
             df_results,
@@ -392,16 +438,13 @@ def main():
             init_type='aug',
             is_aug=True,
         )
-    model_size = Path(args.cfg).stem[9:]
-    if seeding:
-        model_size += f'_seed{args.seed}'
-    percent = args.percent * 100
-    results_name = f'eq_init_results_{dataset_name}_{model_size}_{percent}'
-    results_name += f'_ckpt{last_epoch}'
-    if args.dropout_eval:
-        results_name += '_dropout'
+    results_name = 'eq_init_results.csv'
+    write_header = not Path(results_name).is_file()
     df_results.to_csv(
-        f'{results_name}.csv',
+        results_name,
+        mode='a',
+        header=write_header,
+        index=False,
     )
     return df_results
 

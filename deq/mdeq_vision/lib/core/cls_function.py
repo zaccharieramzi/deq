@@ -119,8 +119,6 @@ def train(config, train_loader, model, criterion, optimizer, lr_scheduler, epoch
                         ni[i_batch].cpu()
                         for ni in new_inits[:-1]
                     ]
-                    # the last one is nstep
-                    warm_inits[idx.cpu().numpy().item()].append(new_inits[-1])
                 else:
                     ni = new_inits[0][i_batch].cpu()
                     warm_inits[idx.cpu().numpy().item()] = ni

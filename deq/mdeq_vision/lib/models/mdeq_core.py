@@ -486,7 +486,7 @@ class MDEQNet(nn.Module):
                     new_z1.detach().clone(),
                     result_fw['Us'],
                     result_fw['VTs'],
-                    result_fw['nstep'],
+                    torch.tensor(result_fw['nstep']).to(x).repeat(bsz),
                 ]
             else:
                 new_inits = None

@@ -291,7 +291,7 @@ def main():
         seed=args.seed,
         analysis_time=time.time(),
         dropout=args.dropout_eval,
-        percent=args.percent_eval*100,
+        percent=args.percent*100,
         broyden_matrices=args.broyden_matrices,
     )
 

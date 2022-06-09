@@ -41,13 +41,13 @@ def test_cls_eq(config):
         cls_eq_analysis_main()
 
 
-def test_cls_eq_broyden_matrices(config):
+def test_cls_eq_broyden_matrices():
     args = [
         "main",
         "--save_at",
         "1",
         "--cfg",
-        f"deq/mdeq_vision/experiments/cifar/cls_mdeq_{config}.yaml",
+        "deq/mdeq_vision/experiments/cifar/cls_mdeq_TINY.yaml",
         "--percent",
         "0.0035",
         "TRAIN.END_EPOCH",

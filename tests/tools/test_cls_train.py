@@ -2,6 +2,7 @@ import os
 
 import pytest
 from unittest.mock import patch
+import torch
 
 from deq.mdeq_vision.tools.cls_train import main
 
@@ -36,6 +37,10 @@ def test_cls_train(config):
 @pytest.mark.skipif(
     os.environ.get('CI', False) == 'true',
     reason='The full warm init test is too long for CI',
+)
+@pytest.mark.skipif(
+    not torch.cuda.is_available(),
+    reason='No GPU found',
 )
 def test_cls_train_warm_init():
     args = [

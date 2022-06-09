@@ -46,6 +46,8 @@ def test_cls_train_warm_init():
         "2",
         "TRAIN.PRETRAIN_STEPS",
         "0",
+        "TRAIN.RESUME",
+        "False",
         "DEQ.F_THRES",
         "1",
         "DEQ.B_THRES",

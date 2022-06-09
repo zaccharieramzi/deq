@@ -157,7 +157,7 @@ def broyden(f, x0, threshold, eps=1e-3, stop_mode="rel", ls=False, name="unknown
                         'rel': 0}
     nstep, lowest_xest, lowest_gx = 0, x_est, gx
 
-    while nstep - orig_nstep < threshold:
+    while nstep < threshold:
         x_est, gx, delta_x, delta_gx, ite = line_search(update, x_est, gx, g, nstep=nstep, on=ls)
         nstep += 1
         tnstep += (ite+1)

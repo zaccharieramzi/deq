@@ -47,26 +47,37 @@ def train(config, train_loader, model, criterion, optimizer, lr_scheduler, epoch
             z1 = None
             init_tensors = None
         else:
+            use_broyden_matrices = config.TRAIN.USE_BROYDEN_MATRICES
             input, target, indices = batch
             try:
-                warm_inits_batch = [[
-                    warm_inits[idx.cpu().numpy().item()][i].unsqueeze(0)
-                    for idx in indices
-                ] for i in range(3)]
-                nstep = min([
-                    warm_inits[idx.cpu().numpy().item()][-1].unsqueeze(0)
-                    for idx in indices
-                ])
+                if use_broyden_matrices:
+                    warm_inits_batch = [[
+                        warm_inits[idx.cpu().numpy().item()][i].unsqueeze(0)
+                        for idx in indices
+                    ] for i in range(3)]
+                    nstep = min([
+                        warm_inits[idx.cpu().numpy().item()][-1].unsqueeze(0)
+                        for idx in indices
+                    ])
+                else:
+                    warm_inits_batch = [
+                        warm_inits[idx.cpu().numpy().item()]
+                        for idx in indices
+                    ]
             except KeyError:
                 z1 = None
                 init_tensors = None
             else:
                 # in z1 we concatenate all the warm inits elements
-                z1, Us, VTs = [
-                    torch.cat(wi_batch, dim=0).to(input)
-                    for wi_batch in warm_inits_batch
-                ]
-                init_tensors = [Us, VTs, nstep]
+                if use_broyden_matrices:
+                    z1, Us, VTs = [
+                        torch.cat(wi_batch, dim=0).to(input)
+                        for wi_batch in warm_inits_batch
+                    ]
+                    init_tensors = [Us, VTs, nstep]
+                else:
+                    z1 = torch.cat(warm_inits_batch, dim=0).to(input)
+                    init_tensors = None
 
         # measure data loading time
         data_time.update(time.time() - end)
@@ -103,12 +114,16 @@ def train(config, train_loader, model, criterion, optimizer, lr_scheduler, epoch
         )
         if warm_inits is not None and new_inits is not None:
             for i_batch, idx in enumerate(indices):
-                warm_inits[idx.cpu().numpy().item()] = [
-                    ni[i_batch].cpu()
-                    for ni in new_inits[:-1]
-                ]
-                # the last one is nstep
-                warm_inits[idx.cpu().numpy().item()].append(new_inits[-1])
+                if use_broyden_matrices:
+                    warm_inits[idx.cpu().numpy().item()] = [
+                        ni[i_batch].cpu()
+                        for ni in new_inits[:-1]
+                    ]
+                    # the last one is nstep
+                    warm_inits[idx.cpu().numpy().item()].append(new_inits[-1])
+                else:
+                    ni = new_inits[0][i_batch].cpu()
+                    warm_inits[idx.cpu().numpy().item()] = ni
         if torch.cuda.is_available():
             target = target.cuda(non_blocking=True)
         loss = criterion(output, target)

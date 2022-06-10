@@ -27,6 +27,9 @@ from deq.mdeq_vision.lib.config import config
 from deq.mdeq_vision.lib.config import update_config
 from deq.mdeq_vision.lib.core.cls_function import train, validate
 from deq.mdeq_vision.lib.datasets.indexed_dataset import IndexedDataset
+from deq.mdeq_vision.lib.datasets.multiple_augmentation_dataset import (
+    MultiAugmentationDataset,
+)
 from deq.mdeq_vision.lib.utils.modelsummary import get_model_summary
 from deq.mdeq_vision.lib.utils.utils import get_optimizer
 from deq.mdeq_vision.lib.utils.utils import save_checkpoint
@@ -217,6 +220,13 @@ def main():
         train_dataset = datasets.CIFAR10(root=f'{config.DATASET.ROOT}', train=True, download=True, transform=transform_train)
         valid_dataset = datasets.CIFAR10(root=f'{config.DATASET.ROOT}', train=False, download=True, transform=transform_valid)
 
+    if config.LOSS.DATA_AUG_INVARIANCE:
+        train_dataset.transform = None
+        train_dataset = MultiAugmentationDataset(
+            train_dataset,
+            transform_train,
+            config.TRAIN.N_AUG,
+        )
     if config.TRAIN.WARM_INIT:
         # this is where we modify the dataset to include the indices
         # in order to have a map from the indices to the warm inits

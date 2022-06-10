@@ -101,7 +101,7 @@ def train(config, train_loader, model, criterion, optimizer, lr_scheduler, epoch
         if warm_inits is not None and z1 is None:
             f_thres *= 2
         b_thres = config.DEQ.B_THRES
-        output, jac_loss, _, new_inits = model(
+        output, jac_loss, *others, new_inits = model(
             input,
             train_step=(lr_scheduler._step_count-1),
             compute_jac_loss=compute_jac_loss,
@@ -111,7 +111,10 @@ def train(config, train_loader, model, criterion, optimizer, lr_scheduler, epoch
             b_thres=b_thres,
             writer=writer,
             return_inits=True,
+            data_aug_invariance=config.LOSS.DATA_AUG_INVARIANCE,
         )
+        if config.LOSS.DATA_AUG_INVARIANCE:
+            distance_matrix = others[1]
         if warm_inits is not None and new_inits is not None:
             for i_batch, idx in enumerate(indices):
                 if use_broyden_matrices:
@@ -126,6 +129,11 @@ def train(config, train_loader, model, criterion, optimizer, lr_scheduler, epoch
             target = target.cuda(non_blocking=True)
         loss = criterion(output, target)
         jac_loss = jac_loss.mean()
+        # data aug invariance loss
+        if config.LOSS.DATA_AUG_INVARIANCE:
+            data_aug_weight = config.LOSS.DATA_AUG_INVARIANCE_WEIGHT
+            data_aug_loss = data_aug_weight * distance_matrix.mean()
+            loss += data_aug_loss
 
         # compute gradient and do update step
         optimizer.zero_grad()

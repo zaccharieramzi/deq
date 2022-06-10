@@ -405,6 +405,12 @@ class MDEQNet(nn.Module):
         return_inits = kwargs.get('return_inits', False)
         return_result = kwargs.get('return_result', False)
         data_aug_invariance = kwargs.get('data_aug_invariance', False)
+        if data_aug_invariance:
+            # in this case x shape is
+            # (batch_size, n_aug, channels, height, width)
+            n_aug = x.size()[1]
+            n_unique_images = x.size()[0]
+            x = x.reshape(n_aug*n_unique_images, *x.size()[2:])
         x = self.downsample(x)
         rank = get_rank()
         deq_mode = (train_step < 0) or (train_step >= self.pretrain_steps)
@@ -462,13 +468,15 @@ class MDEQNet(nn.Module):
                 if compute_jac_loss:
                     jac_loss = jac_loss_estimate(new_z1, z1)
                 if data_aug_invariance:
-                    # we actually don't need the full distance matrix
-                    # just the subblocks corresponding to a single image
-                    unbatched_z1 = new_z1[..., 0].unsqueeze(0)
-                    distance_matrix = torch.cdist(
-                        unbatched_z1,
-                        unbatched_z1,
-                    )[0]
+                    batched_z1 = new_z1[..., 0].reshape(
+                        n_unique_images,
+                        n_aug,
+                        -1,
+                    )
+                    distance_matrix = torch.cat([torch.cdist(
+                        batched_z1[i_batch].unsqueeze(0),
+                        batched_z1[i_batch].unsqueeze(0),
+                    )[0] for i_batch in range(n_unique_images)], dim=0)
 
                 def backward_hook(grad):
                     if self.hook is not None:

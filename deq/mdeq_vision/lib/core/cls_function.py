@@ -115,6 +115,7 @@ def train(config, train_loader, model, criterion, optimizer, lr_scheduler, epoch
         )
         if config.LOSS.DATA_AUG_INVARIANCE:
             distance_matrix = others[1]
+            target = target.reshape(-1)
         if warm_inits is not None and new_inits is not None:
             for i_batch, idx in enumerate(indices):
                 if use_broyden_matrices:

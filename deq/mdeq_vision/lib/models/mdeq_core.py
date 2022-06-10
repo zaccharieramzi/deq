@@ -404,6 +404,7 @@ class MDEQNet(nn.Module):
         grad_init = kwargs.get('grad_init', None)
         return_inits = kwargs.get('return_inits', False)
         return_result = kwargs.get('return_result', False)
+        data_aug_invariance = kwargs.get('data_aug_invariance', False)
         x = self.downsample(x)
         rank = get_rank()
         deq_mode = (train_step < 0) or (train_step >= self.pretrain_steps)
@@ -460,6 +461,12 @@ class MDEQNet(nn.Module):
                 new_z1 = func(z1.requires_grad_())
                 if compute_jac_loss:
                     jac_loss = jac_loss_estimate(new_z1, z1)
+                if data_aug_invariance:
+                    unbatched_z1 = new_z1[..., 0].unsqueeze(0)
+                    distance_matrix = torch.cdist(
+                        unbatched_z1,
+                        unbatched_z1,
+                    )[0]
 
                 def backward_hook(grad):
                     if self.hook is not None:
@@ -480,6 +487,8 @@ class MDEQNet(nn.Module):
 
         y_list = self.iodrop(vec2list(new_z1, cutoffs))  # this is a no-op
         return_objects = (y_list, jac_loss.view(1, -1), sradius.view(-1, 1))
+        if data_aug_invariance:
+            return_objects += (distance_matrix,)
         if return_inits:
             if deq_mode:
                 new_inits = [

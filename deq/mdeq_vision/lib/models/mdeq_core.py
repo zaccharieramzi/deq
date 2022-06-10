@@ -462,6 +462,8 @@ class MDEQNet(nn.Module):
                 if compute_jac_loss:
                     jac_loss = jac_loss_estimate(new_z1, z1)
                 if data_aug_invariance:
+                    # we actually don't need the full distance matrix
+                    # just the subblocks corresponding to a single image
                     unbatched_z1 = new_z1[..., 0].unsqueeze(0)
                     distance_matrix = torch.cdist(
                         unbatched_z1,

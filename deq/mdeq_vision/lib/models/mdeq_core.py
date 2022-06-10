@@ -467,16 +467,6 @@ class MDEQNet(nn.Module):
                 new_z1 = func(z1.requires_grad_())
                 if compute_jac_loss:
                     jac_loss = jac_loss_estimate(new_z1, z1)
-                if data_aug_invariance:
-                    batched_z1 = new_z1[..., 0].reshape(
-                        n_unique_images,
-                        n_aug,
-                        -1,
-                    )
-                    distance_matrix = torch.cat([torch.cdist(
-                        batched_z1[i_batch].unsqueeze(0),
-                        batched_z1[i_batch].unsqueeze(0),
-                    )[0] for i_batch in range(n_unique_images)], dim=0)
 
                 def backward_hook(grad):
                     if self.hook is not None:
@@ -494,6 +484,16 @@ class MDEQNet(nn.Module):
                     self.new_grad = new_grad.detach().clone().cpu()
                     return new_grad
                 self.hook = new_z1.register_hook(backward_hook)
+        if data_aug_invariance:
+            batched_z1 = new_z1[..., 0].reshape(
+                n_unique_images,
+                n_aug,
+                -1,
+            )
+            distance_matrix = torch.cat([torch.cdist(
+                batched_z1[i_batch].unsqueeze(0),
+                batched_z1[i_batch].unsqueeze(0),
+            )[0] for i_batch in range(n_unique_images)], dim=0)
 
         y_list = self.iodrop(vec2list(new_z1, cutoffs))  # this is a no-op
         return_objects = (y_list, jac_loss.view(1, -1), sradius.view(-1, 1))

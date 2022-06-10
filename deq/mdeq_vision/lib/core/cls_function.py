@@ -61,7 +61,7 @@ def train(config, train_loader, model, criterion, optimizer, lr_scheduler, epoch
                     ])
                 else:
                     warm_inits_batch = [
-                        warm_inits[idx.cpu().numpy().item()]
+                        warm_inits[idx.cpu().numpy().item()].unsqueeze(0)
                         for idx in indices
                     ]
             except KeyError:

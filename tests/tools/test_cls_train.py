@@ -64,3 +64,40 @@ def test_cls_train_warm_init():
     ]
     with patch("sys.argv", args):
         main()
+
+
+@pytest.mark.parametrize("config", [
+    "LARGE_reg",
+    "LARGE_reg_warm",
+    "LARGE",
+])
+def test_cls_train_data_aug_invariance(config):
+    args = [
+        "main",
+        "--cfg",
+        f"deq/mdeq_vision/experiments/cifar/cls_mdeq_{config}.yaml",
+        "--percent",
+        "0.0035",
+        "TRAIN.END_EPOCH",
+        "2",
+        "TRAIN.PRETRAIN_STEPS",
+        "1",
+        "TRAIN.RESUME",
+        "False",
+        "DEQ.F_THRES",
+        "1",
+        "DEQ.B_THRES",
+        "1",
+        "MODEL.NUM_LAYERS",
+        "1",
+        "MODEL.EXTRA.FULL_STAGE.FINAL_CHANSIZE",
+        "10",
+        "LOSS.DATA_AUG_INVARIANCE",
+        "True",
+        "LOSS.DATA_AUG_INVARIANCE_WEIGHT",
+        "0.0001",
+        "TRAIN.N_AUG",
+        "2",
+    ]
+    with patch("sys.argv", args):
+        main()

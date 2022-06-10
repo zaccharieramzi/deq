@@ -13,10 +13,11 @@ class MultiAugmentationDataset(Dataset):
         return len(self.dataset)
 
     def __getitem__(self, index):
-        image = self.dataset[index]
+        image, label = self.dataset[index]
         augments = [
-            self.augment(image)
+            self.augment(image).unsqueeze(0)
             for _ in range(self.n_augment)
         ]
         sub_batch = torch.cat(augments, dim=0)
-        return sub_batch
+        label = torch.tensor(label).unsqueeze(0).repeat(self.n_augment)
+        return sub_batch, label

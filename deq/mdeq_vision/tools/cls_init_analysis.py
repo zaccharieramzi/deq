@@ -244,8 +244,8 @@ def main():
         'f_thres',
         'eps',
     ])
-    f_thres = 50
-    eps = 1e-7
+    f_thres = 8
+    eps = 1e-3
     model_size = Path(args.cfg).stem[9:]
     common_args = dict(
         model_size=model_size,

@@ -286,8 +286,8 @@ def main():
         z2 = new_inits[0]
         mse = torch.mean((z1 - z2)**2)
         df_diff = pd.DataFrame(data={
-            'image_index': image_index,
-            'mse': mse,
+            'image_index': [image_index],
+            'mse': [mse],
             **common_args,
         })
         df_results = df_results.append(df_diff, ignore_index=True)

@@ -241,7 +241,11 @@ def main():
         'model_size',
         'checkpoint',
         'dropout',
+        'f_thres',
+        'eps',
     ])
+    f_thres = 50
+    eps = 1e-7
     model_size = Path(args.cfg).stem[9:]
     common_args = dict(
         model_size=model_size,
@@ -250,6 +254,8 @@ def main():
         seed=args.seed,
         analysis_time=time.time(),
         dropout=args.dropout_eval,
+        f_thres=f_thres,
+        eps=eps,
     )
 
     image_indices = np.random.choice(
@@ -268,19 +274,19 @@ def main():
             image,
             train_step=-1,
             return_inits=True,
-            eps=1e-7,
-            f_thres=50,
+            eps=eps,
+            f_thres=f_thres,
         )
         z1 = new_inits[0]
 
-        randn_init = torch.randn_like(z1)
+        randn_init = torch.randn_like(z1) * torch.std(z1) + torch.mean(z1)
 
         *_, new_inits = fn(
             image,
             train_step=-1,
             return_inits=True,
-            eps=1e-7,
-            f_thres=50,
+            eps=eps,
+            f_thres=f_thres,
             z1=randn_init,
         )
         z2 = new_inits[0]

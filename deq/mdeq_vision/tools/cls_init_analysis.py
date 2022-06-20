@@ -252,21 +252,6 @@ def main():
         dropout=args.dropout_eval,
     )
 
-    def fill_df_results(df_results, result_info,  **data_kwargs):
-        n_step = result_info['nstep']
-        trace = result_info['rel_trace'][:n_step]
-        abs_trace = result_info['abs_trace'][:n_step]
-        i_iter = np.arange(n_step)
-        df_trace = pd.DataFrame(data={
-            'trace': trace,
-            'abs_trace': abs_trace,
-            'i_iter': i_iter,
-            **data_kwargs,
-            **common_args,
-        })
-        df_results = df_results.append(df_trace, ignore_index=True)
-        return df_results
-
     image_indices = np.random.choice(
         len(aug_train_dataset),
         args.n_images,

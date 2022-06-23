@@ -91,5 +91,6 @@ TRAIN:
   MOMENTUM: 0.98
   NESTEROV: true
   SHUFFLE: true
+  N_AUG: 4
 DEBUG:
   DEBUG: false

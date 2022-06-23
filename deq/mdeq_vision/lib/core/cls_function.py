@@ -133,15 +133,14 @@ def train(config, train_loader, model, criterion, optimizer, lr_scheduler, epoch
         # data aug invariance loss
         if config.LOSS.DATA_AUG_INVARIANCE:
             data_aug_weight = config.LOSS.DATA_AUG_INVARIANCE_WEIGHT
-            data_aug_loss = data_aug_weight * distance_matrix.mean()
-            loss += data_aug_loss
+            data_aug_loss = distance_matrix.mean()
 
         # compute gradient and do update step
         optimizer.zero_grad()
         if factor > 0:
-            (loss + factor*jac_loss).backward()
+            (loss + factor*jac_loss + data_aug_weight*data_aug_loss).backward()
         else:
-            loss.backward()
+            (loss + + data_aug_weight*data_aug_loss).backward()
         if config.TRAIN.CLIP > 0:
             torch.nn.utils.clip_grad_norm_(model.parameters(), config.TRAIN.CLIP)
         optimizer.step()
@@ -168,10 +167,13 @@ def train(config, train_loader, model, criterion, optimizer, lr_scheduler, epoch
                   'Data {data_time.avg:.3f}s\t' \
                   'Loss {loss.avg:.5f}\t' \
                   'Jac (gamma) {jac_losses.avg:.4f} ({factor:.4f})\t' \
+                  'Data aug. loss {data_aug_loss.avg:.4f}\t' \
                   'Acc@1 {top1.avg:.3f}\t'.format(
                       epoch, i, effec_batch_num, global_steps, batch_time=batch_time,
                       speed=input.size(0)/batch_time.avg,
-                      data_time=data_time, loss=losses, jac_losses=jac_losses, factor=factor, top1=top1)
+                      data_time=data_time, loss=losses, jac_losses=jac_losses,
+                      data_aug_loss=data_aug_loss,
+                      factor=factor, top1=top1)
             if 5 in topk:
                 msg += 'Acc@5 {top5.avg:.3f}\t'.format(top5=top5)
             logger.info(msg)

@@ -26,6 +26,7 @@ def train(config, train_loader, model, criterion, optimizer, lr_scheduler, epoch
     data_time = AverageMeter()
     losses = AverageMeter()
     jac_losses = AverageMeter()
+    data_aug_losses = AverageMeter()
     top1 = AverageMeter()
     top5 = AverageMeter()
     writer = writer_dict['writer'] if writer_dict else None
@@ -152,6 +153,9 @@ def train(config, train_loader, model, criterion, optimizer, lr_scheduler, epoch
         if compute_jac_loss:
             jac_losses.update(jac_loss.item(), input.size(0))
 
+        if config.LOSS.DATA_AUG_INVARIANCE:
+            data_aug_losses.update(data_aug_loss.item(), input.size(0))
+
         prec1, prec5 = accuracy(output, target, topk=topk)
         top1.update(prec1[0], input.size(0))
         top5.update(prec5[0], input.size(0))
@@ -167,12 +171,12 @@ def train(config, train_loader, model, criterion, optimizer, lr_scheduler, epoch
                   'Data {data_time.avg:.3f}s\t' \
                   'Loss {loss.avg:.5f}\t' \
                   'Jac (gamma) {jac_losses.avg:.4f} ({factor:.4f})\t' \
-                  'Data aug. loss {data_aug_loss.avg:.4f}\t' \
+                  'Data aug. loss {data_aug_losses.avg:.4f}\t' \
                   'Acc@1 {top1.avg:.3f}\t'.format(
                       epoch, i, effec_batch_num, global_steps, batch_time=batch_time,
                       speed=input.size(0)/batch_time.avg,
                       data_time=data_time, loss=losses, jac_losses=jac_losses,
-                      data_aug_loss=data_aug_loss,
+                      data_aug_losses=data_aug_losses,
                       factor=factor, top1=top1)
             if 5 in topk:
                 msg += 'Acc@5 {top5.avg:.3f}\t'.format(top5=top5)

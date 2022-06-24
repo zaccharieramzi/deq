@@ -136,18 +136,6 @@ def train(config, train_loader, model, criterion, optimizer, lr_scheduler, epoch
             data_aug_weight = config.LOSS.DATA_AUG_INVARIANCE_WEIGHT
             data_aug_loss = distance_matrix.mean()
 
-        # compute gradient and do update step
-        optimizer.zero_grad()
-        if factor > 0:
-            (loss + factor*jac_loss + data_aug_weight*data_aug_loss).backward()
-        else:
-            (loss + + data_aug_weight*data_aug_loss).backward()
-        if config.TRAIN.CLIP > 0:
-            torch.nn.utils.clip_grad_norm_(model.parameters(), config.TRAIN.CLIP)
-        optimizer.step()
-        if config.TRAIN.LR_SCHEDULER != 'step':
-            lr_scheduler.step()
-
         # measure accuracy and record loss
         losses.update(loss.item(), input.size(0))
         if compute_jac_loss:
@@ -155,6 +143,20 @@ def train(config, train_loader, model, criterion, optimizer, lr_scheduler, epoch
 
         if config.LOSS.DATA_AUG_INVARIANCE:
             data_aug_losses.update(data_aug_loss.item(), input.size(0))
+
+        if factor > 0:
+            loss += jac_loss * factor
+        if config.LOSS.DATA_AUG_INVARIANCE:
+            loss += data_aug_loss * data_aug_weight
+
+        # compute gradient and do update step
+        optimizer.zero_grad()
+        loss.backward()
+        if config.TRAIN.CLIP > 0:
+            torch.nn.utils.clip_grad_norm_(model.parameters(), config.TRAIN.CLIP)
+        optimizer.step()
+        if config.TRAIN.LR_SCHEDULER != 'step':
+            lr_scheduler.step()
 
         prec1, prec5 = accuracy(output, target, topk=topk)
         top1.update(prec1[0], input.size(0))

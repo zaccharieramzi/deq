@@ -137,12 +137,12 @@ def train(config, train_loader, model, criterion, optimizer, lr_scheduler, epoch
             data_aug_loss = distance_matrix.mean()
 
         # measure accuracy and record loss
-        losses.update(loss.item(), input.size(0))
+        losses.update(loss.item(), target.size(0))
         if compute_jac_loss:
-            jac_losses.update(jac_loss.item(), input.size(0))
+            jac_losses.update(jac_loss.item(), target.size(0))
 
         if config.LOSS.DATA_AUG_INVARIANCE:
-            data_aug_losses.update(data_aug_loss.item(), input.size(0))
+            data_aug_losses.update(data_aug_loss.item(), target.size(0))
 
         if factor > 0:
             loss += jac_loss * factor

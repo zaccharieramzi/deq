@@ -6,10 +6,12 @@ from __future__ import print_function
 
 import argparse
 import os
+from pathlib import Path
 import pprint
 import shutil
 import sys
 
+import pandas as pd
 from termcolor import colored
 import torch
 import torch.nn as nn
@@ -75,6 +77,10 @@ def parse_args():
     parser.add_argument('--seed',
                         help='random seed',
                         type=int,
+                        default=None)
+    parser.add_argument('--results_name',
+                        help='file in which to store the accuracy and hyperparameters',
+                        type=str,
                         default=None)
     parser.add_argument('opts',
                         help="Modify config options using the command-line",
@@ -334,6 +340,29 @@ def main():
     torch.save(state_dict, final_model_state_file)
     if writer_dict['writer'] is not None:
         writer_dict['writer'].close()
+    if args.results_name is not None:
+        write_header = not Path(args.results_name).is_file()
+        df_results = pd.DataFrame({
+            'seed': seed,
+            'top1': perf_indicator,
+            'percent': args.percent,
+            'opts': args.opts,
+            'warm_init': config.TRAIN.WARM_INIT,
+            'f_thres_train': config.DEQ.F_THRES,
+            'f_thres_val': config.DEQ.F_THRES,
+            'b_thres': config.DEQ.B_THRES,
+            'jac_loss_weight': config.LOSS.JAC_LOSS_WEIGHT,
+            'da_inv': config.LOSS.DATA_AUG_INVARIANCE,
+            'da_inv_weight': config.LOSS.DATA_AUG_INVARIANCE_WEIGHT,
+            'dataset': dataset_name,
+            'model_size': os.path.basename(args.cfg).split('.')[0],
+        })
+        df_results.to_csv(
+            args.results_name,
+            mode='a',
+            header=write_header,
+            index=False,
+        )
 
 
 if __name__ == '__main__':

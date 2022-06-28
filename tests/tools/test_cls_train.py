@@ -1,3 +1,4 @@
+from pathlib import Path
 import os
 
 import pytest
@@ -32,6 +33,35 @@ def test_cls_train(config):
     ]
     with patch("sys.argv", args):
         main()
+
+
+def test_cls_train_save_res():
+    filename = "results.csv"
+    args = [
+        "main",
+        "--cfg",
+        "deq/mdeq_vision/experiments/cifar/cls_mdeq_TINY.yaml",
+        "--results_name",
+        filename,
+        "--percent",
+        "0.0035",
+        "TRAIN.END_EPOCH",
+        "2",
+        "TRAIN.PRETRAIN_STEPS",
+        "1",
+        "DEQ.F_THRES",
+        "5",
+        "DEQ.B_THRES",
+        "5",
+        "MODEL.NUM_LAYERS",
+        "2",
+    ]
+    with patch("sys.argv", args):
+        main()
+    fileobj = Path(filename)
+    assert fileobj.exists()
+    # cleanup
+    fileobj.unlink()
 
 
 @pytest.mark.skipif(

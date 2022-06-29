@@ -343,6 +343,7 @@ def main():
     if args.results_name is not None:
         write_header = not Path(args.results_name).is_file()
         df_results = pd.DataFrame({
+            'phase': 'train',
             'seed': seed,
             'top1': perf_indicator,
             'percent': args.percent,

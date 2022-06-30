@@ -357,7 +357,7 @@ def main():
             'da_inv_weight': config.LOSS.DATA_AUG_INVARIANCE_WEIGHT,
             'dataset': dataset_name,
             'model_size': os.path.basename(args.cfg).split('.')[0],
-        })
+        }, index=[0])
         df_results.to_csv(
             args.results_name,
             mode='a',

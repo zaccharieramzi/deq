@@ -4,7 +4,7 @@ from deq.mdeq_vision.tools.cls_train import main
 from deq.mdeq_vision.tools.cls_valid import main as main_valid
 
 
-def test_cls_eq():
+def test_cls_valid():
     args = [
         "main",
         "--cfg",

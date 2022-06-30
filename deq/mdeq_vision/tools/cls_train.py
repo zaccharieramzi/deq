@@ -347,7 +347,7 @@ def main():
             'seed': seed,
             'top1': perf_indicator,
             'percent': args.percent,
-            'opts': args.opts,
+            'opts': ",".join(args.opts),
             'warm_init': config.TRAIN.WARM_INIT,
             'f_thres_train': config.DEQ.F_THRES,
             'f_thres_val': config.DEQ.F_THRES,

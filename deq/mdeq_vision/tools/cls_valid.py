@@ -180,7 +180,7 @@ def main():
         df_results = pd.DataFrame({
             'phase': 'eval',
             'seed': seed,
-            'top1': perf_indicator,
+            'top1': perf_indicator.cpu().numpy().item(),
             'percent': args.percent,
             'opts': ",".join(args.opts),
             'warm_init': config.TRAIN.WARM_INIT,

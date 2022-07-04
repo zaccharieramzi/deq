@@ -5,6 +5,7 @@ from __future__ import division
 from __future__ import print_function
 
 import logging
+from pathlib import Path
 import random
 import sys
 import time
@@ -43,8 +44,12 @@ def train(config, train_loader, model, criterion, optimizer, lr_scheduler, epoch
         if i >= effec_batch_num: break
 
         if warm_inits is None:
-            input, target = batch
-            z1 = None
+            if config.TRAIN.WARM_INIT:
+                input, target, z1, indices = batch
+                warm_init_dir = Path(config.TRAIN.WARM_INIT_DIR)
+            else:
+                input, target = batch
+                z1 = None
             init_tensors = None
         else:
             use_broyden_matrices = config.TRAIN.USE_BROYDEN_MATRICES
@@ -122,6 +127,13 @@ def train(config, train_loader, model, criterion, optimizer, lr_scheduler, epoch
                 else:
                     ni = new_inits[0][i_batch].cpu()
                     warm_inits[idx.cpu().numpy().item()] = ni
+        elif config.TRAIN.WARM_INIT and new_inits is not None:
+            for i_batch, idx in enumerate(indices):
+                ni = new_inits[0][i_batch].cpu()
+                torch.save(
+                    ni,
+                    warm_init_dir / f'{idx.cpu().numpy().item()}.pt',
+                )
         if torch.cuda.is_available():
             target = target.cuda(non_blocking=True)
         loss = criterion(output, target)

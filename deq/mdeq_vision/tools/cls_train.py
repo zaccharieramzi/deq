@@ -27,6 +27,7 @@ from deq.mdeq_vision.lib.config import config
 from deq.mdeq_vision.lib.config import update_config
 from deq.mdeq_vision.lib.core.cls_function import train, validate
 from deq.mdeq_vision.lib.datasets.indexed_dataset import IndexedDataset
+from deq.mdeq_vision.lib.datasets.warm_init_dataset import WarmInitDataset
 from deq.mdeq_vision.lib.utils.modelsummary import get_model_summary
 from deq.mdeq_vision.lib.utils.utils import get_optimizer
 from deq.mdeq_vision.lib.utils.utils import save_checkpoint
@@ -217,13 +218,18 @@ def main():
         train_dataset = datasets.CIFAR10(root=f'{config.DATASET.ROOT}', train=True, download=True, transform=transform_train)
         valid_dataset = datasets.CIFAR10(root=f'{config.DATASET.ROOT}', train=False, download=True, transform=transform_valid)
 
+    warm_inits = None
     if config.TRAIN.WARM_INIT:
         # this is where we modify the dataset to include the indices
         # in order to have a map from the indices to the warm inits
-        train_dataset = IndexedDataset(train_dataset)
-        warm_inits = {}
-    else:
-        warm_inits = None
+        if dataset_name == 'cifar10':
+            train_dataset = IndexedDataset(train_dataset)
+            warm_inits = {}
+        else:
+            train_dataset = WarmInitDataset(
+                train_dataset,
+                config.TRAIN.WARM_INIT_DIR,
+            )
 
     batch_size = config.TRAIN.BATCH_SIZE_PER_GPU
     test_batch_size = config.TEST.BATCH_SIZE_PER_GPU

@@ -8,15 +8,18 @@ class WarmInitDataset(Dataset):
     def __init__(self, dataset, warm_init_path):
         super().__init__()
         self.internal_dataset = dataset
-        self.warm_init_path = Path(warm_init_path)
+        if warm_init_path:
+            self.warm_init_path = Path(warm_init_path)
+        else:
+            self.warm_init_path = None
 
     def __getitem__(self, index):
         data = self.internal_dataset[index]
-        warm_file = self.warm_init_path / f'{index}.pt'
-        if warm_file.exists():
-            warm_init = torch.load(warm_file)
-        else:
-            warm_init = None
+        warm_init = None
+        if self.warm_init_path:
+            warm_file = self.warm_init_path / f'{index}.pt'
+            if warm_file.exists():
+                warm_init = torch.load(warm_file)
         return (*data, warm_init, index)
 
     def __len__(self):

@@ -180,9 +180,9 @@ def main():
         df_results = pd.DataFrame({
             'phase': 'eval',
             'seed': seed,
-            'top1': perf_indicator,
+            'top1': perf_indicator.cpu().numpy().item(),
             'percent': args.percent,
-            'opts': args.opts,
+            'opts': ",".join(args.opts),
             'warm_init': config.TRAIN.WARM_INIT,
             'f_thres_train': np.nan,
             'f_thres_val': config.DEQ.F_THRES,
@@ -192,7 +192,7 @@ def main():
             'da_inv_weight': config.LOSS.DATA_AUG_INVARIANCE_WEIGHT,
             'dataset': dataset_name,
             'model_size': os.path.basename(args.cfg).split('.')[0],
-        })
+        }, index=[0])
         df_results.to_csv(
             args.results_name,
             mode='a',

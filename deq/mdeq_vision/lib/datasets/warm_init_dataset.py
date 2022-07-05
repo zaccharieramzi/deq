@@ -35,5 +35,5 @@ def collate_fn_none(batch):
         if isinstance(elem, collections.abc.Sequence):
             transposed = list(zip(*batch))
             return [collate_fn_none(samples) for samples in transposed]
-        elif elem is None:
+        if any(e is None for e in batch):
             return None

@@ -1,3 +1,4 @@
+import collections
 from pathlib import Path
 
 import torch
@@ -24,3 +25,15 @@ class WarmInitDataset(Dataset):
 
     def __len__(self):
         return len(self.internal_dataset)
+
+
+def collate_fn_none(batch):
+    try:
+        return torch.utils.data.default_collate(batch)
+    except TypeError:
+        elem = batch[0]
+        if isinstance(elem, collections.abc.Sequence):
+            transposed = list(zip(*batch))
+            return [collate_fn_none(samples) for samples in transposed]
+        elif elem is None:
+            return None

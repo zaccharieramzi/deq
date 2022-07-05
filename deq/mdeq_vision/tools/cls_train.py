@@ -27,7 +27,10 @@ from deq.mdeq_vision.lib.config import config
 from deq.mdeq_vision.lib.config import update_config
 from deq.mdeq_vision.lib.core.cls_function import train, validate
 from deq.mdeq_vision.lib.datasets.indexed_dataset import IndexedDataset
-from deq.mdeq_vision.lib.datasets.warm_init_dataset import WarmInitDataset
+from deq.mdeq_vision.lib.datasets.warm_init_dataset import (
+    WarmInitDataset,
+    collate_fn_none,
+)
 from deq.mdeq_vision.lib.utils.modelsummary import get_model_summary
 from deq.mdeq_vision.lib.utils.utils import get_optimizer
 from deq.mdeq_vision.lib.utils.utils import save_checkpoint
@@ -243,6 +246,7 @@ def main():
         num_workers=config.WORKERS,
         pin_memory=True,
         generator=torch.Generator(device=device_str),
+        collate_fn=collate_fn_none,
     )
     valid_loader = torch.utils.data.DataLoader(
         valid_dataset,

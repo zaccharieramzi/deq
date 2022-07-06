@@ -118,6 +118,7 @@ def train(config, train_loader, model, criterion, optimizer, lr_scheduler, epoch
             distance_matrix = others[1]
             target = target.reshape(-1)
         if warm_inits is not None and new_inits is not None:
+            start_warm_init_write = time.time()
             for i_batch, idx in enumerate(indices):
                 if use_broyden_matrices:
                     warm_inits[idx.cpu().numpy().item()] = [
@@ -127,6 +128,9 @@ def train(config, train_loader, model, criterion, optimizer, lr_scheduler, epoch
                 else:
                     ni = new_inits[0][i_batch].cpu()
                     warm_inits[idx.cpu().numpy().item()] = ni
+            end_warm_init_write = time.time()
+            if i % config.PRINT_FREQ == 0:
+                logger.info(f'Warm init write time: {end_warm_init_write - start_warm_init_write}')
         if torch.cuda.is_available():
             target = target.cuda(non_blocking=True)
         loss = criterion(output, target)

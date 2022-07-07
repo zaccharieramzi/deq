@@ -241,7 +241,7 @@ def main():
     if config.TRAIN.WARM_INIT:
         # this is where we modify the dataset to include the indices
         # in order to have a map from the indices to the warm inits
-        if dataset_name == 'cifar10':
+        if dataset_name == 'cifar10' and not config.TRAIN.WARM_INIT_BACK:
             train_dataset = IndexedDataset(train_dataset)
             warm_inits = {}
         else:
@@ -249,6 +249,11 @@ def main():
                 train_dataset,
                 config.TRAIN.WARM_INIT_DIR,
             )
+    elif config.TRAIN.WARM_INIT_BACK:
+        train_dataset = WarmInitDataset(
+            train_dataset,
+            config.TRAIN.WARM_INIT_DIR,
+        )
 
     batch_size = config.TRAIN.BATCH_SIZE_PER_GPU
     test_batch_size = config.TEST.BATCH_SIZE_PER_GPU

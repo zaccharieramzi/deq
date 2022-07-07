@@ -8,7 +8,7 @@ import argparse
 import os
 from pathlib import Path
 import pprint
-from time import time
+import time
 
 import numpy as np
 import pandas as pd

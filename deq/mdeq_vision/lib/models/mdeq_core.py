@@ -409,9 +409,6 @@ class MDEQNet(nn.Module):
         init_tensors = kwargs.get('init_tensors', None)
         grad_init = kwargs.get('grad_init', None)
         indices = kwargs.get('indices', None)
-        if grad_init is not None:
-            assert indices is not None
-            assert self.warm_init_dir is not None
         return_inits = kwargs.get('return_inits', False)
         return_result = kwargs.get('return_result', False)
         save_grad_result = kwargs.get('save_grad_result', False)

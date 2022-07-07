@@ -233,6 +233,11 @@ def main():
                 train_dataset,
                 config.TRAIN.WARM_INIT_DIR,
             )
+    elif config.TRAIN.WARM_INIT_BACK:
+        train_dataset = WarmInitDataset(
+            train_dataset,
+            config.TRAIN.WARM_INIT_DIR,
+        )
 
     batch_size = config.TRAIN.BATCH_SIZE_PER_GPU
     test_batch_size = config.TEST.BATCH_SIZE_PER_GPU

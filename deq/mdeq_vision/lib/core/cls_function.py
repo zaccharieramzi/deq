@@ -44,7 +44,7 @@ def train(config, train_loader, model, criterion, optimizer, lr_scheduler, epoch
         if i >= effec_batch_num: break
 
         if warm_inits is None:
-            if config.TRAIN.WARM_INIT:
+            if config.TRAIN.WARM_INIT or config.TRAIN.WARM_INIT_BACK:
                 input, target, z1, grad_init, indices = batch
                 warm_init_dir = Path(config.TRAIN.WARM_INIT_DIR)
             else:

@@ -52,9 +52,14 @@ def test_cls_train_warm_init_back(config):
         "MODEL.NUM_LAYERS", "2",
         "TRAIN.WARM_INIT_BACK", "True",
         "TRAIN.WARM_INIT_DIR", "./",
+        "WORKERS", "1",
     ]
     with patch("sys.argv", args):
         main()
+    # clean up all *.pt files in the ./ dir
+    for f in os.listdir("./"):
+        if f.endswith(".pt"):
+            os.remove(f)
 
 
 @pytest.mark.skipif(

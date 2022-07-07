@@ -8,6 +8,7 @@ import argparse
 import os
 from pathlib import Path
 import pprint
+from time import time
 
 import numpy as np
 import pandas as pd
@@ -271,7 +272,24 @@ def main():
         'init_type',
         'is_aug',
         'i_iter',
+        'analysis_time',
+        'seed',
+        'dataset',
+        'model_size',
+        'checkpoint',
+        'dropout',
+        'percent',
     ])
+    model_size = Path(args.cfg).stem[9:]
+    common_args = dict(
+        model_size=model_size,
+        dataset=dataset_name,
+        checkpoint=last_epoch,
+        seed=args.seed,
+        analysis_time=time.time(),
+        dropout=args.dropout_eval,
+        percent=args.percent*100,
+    )
 
     def fill_df_results(df_results, result_info,  **data_kwargs):
         n_step = result_info['nstep']
@@ -283,6 +301,7 @@ def main():
             'abs_trace': abs_trace,
             'i_iter': i_iter,
             **data_kwargs,
+            **common_args,
         })
         df_results = df_results.append(df_trace, ignore_index=True)
         return df_results
@@ -423,14 +442,13 @@ def main():
             init_type='aug',
             is_aug=True,
         )
-    model_size = Path(args.cfg).stem[9:]
-    percent = args.percent * 100
-    results_name = f'grad_eq_init_results_{dataset_name}_{model_size}_{percent}'
-    results_name += f'_ckpt{last_epoch}'
-    if args.dropout_eval:
-        results_name += '_dropout'
+    results_name = 'grad_eq_init_results.csv'
+    write_header = not Path(results_name).is_file()
     df_results.to_csv(
-        f'{results_name}.csv',
+        results_name,
+        mode='a',
+        header=write_header,
+        index=False,
     )
     return df_results
 

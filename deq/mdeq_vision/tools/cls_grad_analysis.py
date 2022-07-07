@@ -306,7 +306,7 @@ def main():
         output, *_ = model(
             image,
             train_step=-1,
-            indices=torch.Tensor([image_index]),
+            indices=torch.tensor([image_index]),
             save_grad_result=True,
         )
         if torch.cuda.is_available():
@@ -372,9 +372,10 @@ def main():
         output, *_ = model(image, train_step=-1)
         loss = criterion(output, target)
         loss.backward()
+        results = torch.load('grad_result.pt')
         df_results = fill_df_results(
             df_results,
-            model.result_bw if device_str == 'cpu' else model.module.result_bw,
+            results,
             image_index=image_index,
             before_training=False,
             init_type=None,

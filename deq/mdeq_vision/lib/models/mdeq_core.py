@@ -486,7 +486,7 @@ class MDEQNet(nn.Module):
                     self.result_bw = result_bw
                     # save the new gradients per elements of the batch
                     # according to their indices
-                    if self.warm_init_dir is not None:
+                    if self.warm_init_dir is not None and indices is not None:
                         for i_batch, idx in enumerate(indices):
                             g = new_grad[i_batch].cpu()
                             torch.save(

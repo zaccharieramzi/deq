@@ -45,7 +45,7 @@ def train(config, train_loader, model, criterion, optimizer, lr_scheduler, epoch
 
         if warm_inits is None:
             if config.TRAIN.WARM_INIT:
-                input, target, z1, indices = batch
+                input, target, z1, grad_init, indices = batch
                 warm_init_dir = Path(config.TRAIN.WARM_INIT_DIR)
             else:
                 input, target = batch
@@ -106,6 +106,13 @@ def train(config, train_loader, model, criterion, optimizer, lr_scheduler, epoch
         if warm_inits is not None and z1 is None:
             f_thres *= 2
         b_thres = config.DEQ.B_THRES
+        if config.TRAIN.WARM_INIT_BACK:
+            extra_kwargs = dict(
+                grad_init=grad_init,
+                indices=indices,
+            )
+        else:
+            extra_kwargs = dict()
         output, jac_loss, _, new_inits = model(
             input,
             train_step=(lr_scheduler._step_count-1),
@@ -116,6 +123,7 @@ def train(config, train_loader, model, criterion, optimizer, lr_scheduler, epoch
             b_thres=b_thres,
             writer=writer,
             return_inits=True,
+            **extra_kwargs,
         )
         if warm_inits is not None and new_inits is not None:
             for i_batch, idx in enumerate(indices):

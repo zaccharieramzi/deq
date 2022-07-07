@@ -31,6 +31,7 @@ from deq.mdeq_vision.lib.core.cls_function import train, validate
 from deq.mdeq_vision.lib.datasets.indexed_dataset import IndexedDataset
 from deq.mdeq_vision.lib.datasets.multiple_augmentation_dataset import (
     MultiAugmentationDataset,
+)
 from deq.mdeq_vision.lib.datasets.warm_init_dataset import (
     WarmInitDataset,
     collate_fn_none,

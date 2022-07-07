@@ -334,7 +334,7 @@ def main():
         loss.backward()
         fname = warm_init_dir / f'{image_index}_back.pt'
         vanilla_inits[image_index] = torch.load(fname)
-        results = torch.load('grad_result.pt')
+        results = torch.load(warm_init_dir / 'grad_result.pt')
         df_results = fill_df_results(
             df_results,
             results,
@@ -391,7 +391,7 @@ def main():
         output, *_ = model(image, train_step=-1)
         loss = criterion(output, target)
         loss.backward()
-        results = torch.load('grad_result.pt')
+        results = torch.load(warm_init_dir / 'grad_result.pt')
         df_results = fill_df_results(
             df_results,
             results,
@@ -410,7 +410,7 @@ def main():
         )
         loss = criterion(output, target)
         loss.backward()
-        results = torch.load('grad_result.pt')
+        results = torch.load(warm_init_dir / 'grad_result.pt')
         df_results = fill_df_results(
             df_results,
             results,
@@ -433,7 +433,7 @@ def main():
         )
         loss = criterion(output, target)
         loss.backward()
-        results = torch.load('grad_result.pt')
+        results = torch.load(warm_init_dir / 'grad_result.pt')
         df_results = fill_df_results(
             df_results,
             results,

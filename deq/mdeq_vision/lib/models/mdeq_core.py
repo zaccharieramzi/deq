@@ -501,7 +501,7 @@ class MDEQNet(nn.Module):
                     if save_grad_result:
                         torch.save(
                             result_bw,
-                            'grad_result.pt',
+                            self.warm_init_dir / 'grad_result.pt',
                         )
                     return new_grad
                 self.hook = new_z1.register_hook(backward_hook)

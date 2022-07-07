@@ -34,7 +34,7 @@ class WarmInitDataset(Dataset):
 def collate_fn_none(batch):
     try:
         return torch.utils.data.default_collate(batch)
-    except TypeError:
+    except (TypeError, AttributeError):
         elem = batch[0]
         if isinstance(elem, collections.abc.Sequence):
             transposed = list(zip(*batch))

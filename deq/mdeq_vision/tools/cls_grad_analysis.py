@@ -34,7 +34,7 @@ from deq.mdeq_vision.lib.utils.utils import create_logger
 
 
 def set_modules_inactive(model, dropout=False):
-    inactive_types = [nn.BatchNorm2d]
+    inactive_types = [nn.BatchNorm2d, nn.GroupNorm]
     if dropout:
         inactive_types.append(VariationalHidDropout)
     inactive_types = tuple(inactive_types)
@@ -332,6 +332,7 @@ def main():
             target = target.cuda(non_blocking=True)
         loss = criterion(output, target)
         loss.backward()
+        model.zero_grad()
         fname = warm_init_dir / f'{image_index}_back.pt'
         vanilla_inits[image_index] = torch.load(fname)
         results = torch.load(warm_init_dir / 'grad_result.pt')
@@ -350,6 +351,7 @@ def main():
         output, *_ = model(aug_image, train_step=-1)
         loss = criterion(output, target)
         loss.backward()
+        model.zero_grad()
         aug_inits[image_index] = torch.load(fname)
 
     # Training code
@@ -391,6 +393,7 @@ def main():
         output, *_ = model(image, train_step=-1)
         loss = criterion(output, target)
         loss.backward()
+        model.zero_grad()
         results = torch.load(warm_init_dir / 'grad_result.pt')
         df_results = fill_df_results(
             df_results,
@@ -410,6 +413,7 @@ def main():
         )
         loss = criterion(output, target)
         loss.backward()
+        model.zero_grad()
         results = torch.load(warm_init_dir / 'grad_result.pt')
         df_results = fill_df_results(
             df_results,
@@ -433,6 +437,7 @@ def main():
         )
         loss = criterion(output, target)
         loss.backward()
+        model.zero_grad()
         results = torch.load(warm_init_dir / 'grad_result.pt')
         df_results = fill_df_results(
             df_results,

@@ -34,7 +34,7 @@ from deq.mdeq_vision.lib.utils.utils import create_logger
 
 
 def set_modules_inactive(model, dropout=False):
-    inactive_types = [nn.BatchNorm2d]
+    inactive_types = [nn.BatchNorm2d, nn.GroupNorm]
     if dropout:
         inactive_types.append(VariationalHidDropout)
     inactive_types = tuple(inactive_types)

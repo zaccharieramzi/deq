@@ -34,6 +34,34 @@ def test_cls_train(config):
         main()
 
 
+@pytest.mark.parametrize("config", [
+    "TINY",
+    "LARGE_reg",
+    "TINY_warm",
+])
+def test_cls_train_warm_init_back(config):
+    args = [
+        "main",
+        "--cfg",
+        f"deq/mdeq_vision/experiments/cifar/cls_mdeq_{config}.yaml",
+        "--percent", "0.0035",
+        "TRAIN.END_EPOCH", "2",
+        "TRAIN.PRETRAIN_STEPS", "1",
+        "DEQ.F_THRES", "5",
+        "DEQ.B_THRES", "5",
+        "MODEL.NUM_LAYERS", "2",
+        "TRAIN.WARM_INIT_BACK", "True",
+        "TRAIN.WARM_INIT_DIR", "./",
+        "WORKERS", "1",
+    ]
+    with patch("sys.argv", args):
+        main()
+    # clean up all *.pt files in the ./ dir
+    for f in os.listdir("./"):
+        if f.endswith(".pt"):
+            os.remove(f)
+
+
 @pytest.mark.skipif(
     os.environ.get('CI', False) == 'true',
     reason='The full warm init test is too long for CI',

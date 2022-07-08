@@ -8,6 +8,7 @@ import argparse
 import os
 from pathlib import Path
 import pprint
+import time
 
 import numpy as np
 import pandas as pd
@@ -271,7 +272,24 @@ def main():
         'init_type',
         'is_aug',
         'i_iter',
+        'analysis_time',
+        'seed',
+        'dataset',
+        'model_size',
+        'checkpoint',
+        'dropout',
+        'percent',
     ])
+    model_size = Path(args.cfg).stem[9:]
+    common_args = dict(
+        model_size=model_size,
+        dataset=dataset_name,
+        checkpoint=last_epoch,
+        seed=args.seed,
+        analysis_time=time.time(),
+        dropout=args.dropout_eval,
+        percent=args.percent*100,
+    )
 
     def fill_df_results(df_results, result_info,  **data_kwargs):
         n_step = result_info['nstep']
@@ -283,6 +301,7 @@ def main():
             'abs_trace': abs_trace,
             'i_iter': i_iter,
             **data_kwargs,
+            **common_args,
         })
         df_results = df_results.append(df_trace, ignore_index=True)
         return df_results
@@ -294,6 +313,7 @@ def main():
     )
     vanilla_inits = {}
     aug_inits = {}
+    warm_init_dir = Path(config.TRAIN.WARM_INIT_DIR)
     for image_index in image_indices:
         image, target = train_dataset[image_index]
         image = image.unsqueeze(0)
@@ -302,17 +322,19 @@ def main():
             image = image.cuda()
             target
         # pot in kwargs we can have: f_thres, b_thres, lim_mem
-        output, *_ = model(image, train_step=-1)
+        output, *_ = model(
+            image,
+            train_step=-1,
+            indices=torch.tensor([image_index]),
+            save_grad_result=True,
+        )
         if torch.cuda.is_available():
             target = target.cuda(non_blocking=True)
         loss = criterion(output, target)
         loss.backward()
-        if device_str == 'cuda':
-            vanilla_inits[image_index] = model.module.new_grad.detach().clone()
-            results = model.module.result_bw
-        else:
-            vanilla_inits[image_index] = model.new_grad.detach().clone()
-            results = model.result_bw
+        fname = warm_init_dir / f'{image_index}_back.pt'
+        vanilla_inits[image_index] = torch.load(fname)
+        results = torch.load(warm_init_dir / 'grad_result.pt')
         df_results = fill_df_results(
             df_results,
             results,
@@ -328,10 +350,7 @@ def main():
         output, *_ = model(aug_image, train_step=-1)
         loss = criterion(output, target)
         loss.backward()
-        if device_str == 'cuda':
-            aug_inits[image_index] = model.module.new_grad.detach().clone()
-        else:
-            aug_inits[image_index] = model.new_grad.detach().clone()
+        aug_inits[image_index] = torch.load(fname)
 
     # Training code
     topk = (1, 5) if dataset_name == 'imagenet' else (1,)
@@ -372,24 +391,29 @@ def main():
         output, *_ = model(image, train_step=-1)
         loss = criterion(output, target)
         loss.backward()
+        results = torch.load(warm_init_dir / 'grad_result.pt')
         df_results = fill_df_results(
             df_results,
-            model.result_bw if device_str == 'cpu' else model.module.result_bw,
+            results,
             image_index=image_index,
             before_training=False,
             init_type=None,
             is_aug=False,
         )
+        grad_init = vanilla_inits[image_index]
+        if torch.cuda.is_available():
+            grad_init = grad_init.cuda()
         output, *_ = model(
             image,
             train_step=-1,
-            grad_init=vanilla_inits[image_index],
+            grad_init=grad_init.unsqueeze(0),
         )
         loss = criterion(output, target)
         loss.backward()
+        results = torch.load(warm_init_dir / 'grad_result.pt')
         df_results = fill_df_results(
             df_results,
-            model.result_bw if device_str == 'cpu' else model.module.result_bw,
+            results,
             image_index=image_index,
             before_training=False,
             init_type='vanilla',
@@ -399,29 +423,32 @@ def main():
         new_aug_image = new_aug_image.unsqueeze(0)
         if torch.cuda.is_available():
             new_aug_image = new_aug_image.cuda()
+        aug_grad_init = aug_inits[image_index]
+        if torch.cuda.is_available():
+            aug_grad_init = aug_grad_init.cuda()
         output, *_ = model(
             new_aug_image,
             train_step=-1,
-            grad_init=aug_inits[image_index],
+            grad_init=aug_grad_init.unsqueeze(0),
         )
         loss = criterion(output, target)
         loss.backward()
+        results = torch.load(warm_init_dir / 'grad_result.pt')
         df_results = fill_df_results(
             df_results,
-            model.result_bw if device_str == 'cpu' else model.module.result_bw,
+            results,
             image_index=image_index,
             before_training=False,
             init_type='aug',
             is_aug=True,
         )
-    model_size = Path(args.cfg).stem[9:]
-    percent = args.percent * 100
-    results_name = f'grad_eq_init_results_{dataset_name}_{model_size}_{percent}'
-    results_name += f'_ckpt{last_epoch}'
-    if args.dropout_eval:
-        results_name += '_dropout'
+    results_name = 'grad_eq_init_results.csv'
+    write_header = not Path(results_name).is_file()
     df_results.to_csv(
-        f'{results_name}.csv',
+        results_name,
+        mode='a',
+        header=write_header,
+        index=False,
     )
     return df_results
 

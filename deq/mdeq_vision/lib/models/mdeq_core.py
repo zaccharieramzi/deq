@@ -6,6 +6,7 @@ from collections import OrderedDict
 import functools
 import logging
 import os
+from pathlib import Path
 import sys
 
 import numpy as np
@@ -379,6 +380,11 @@ class MDEQNet(nn.Module):
         FUSE_GN_AFFINE = cfg['MODEL']['FUSE_GN_AFFINE']
         POST_GN_AFFINE = cfg['MODEL']['POST_GN_AFFINE']
 
+        # warm init related
+        self.warm_init_dir = cfg['TRAIN']['WARM_INIT_DIR']
+        if self.warm_init_dir is not None:
+            self.warm_init_dir = Path(self.warm_init_dir)
+
     def _make_stage(self, layer_config, num_channels, dropout=0.0):
         """
         Build an MDEQ block with the given hyperparameters
@@ -402,8 +408,10 @@ class MDEQNet(nn.Module):
         z1 = kwargs.get('z1', None)
         init_tensors = kwargs.get('init_tensors', None)
         grad_init = kwargs.get('grad_init', None)
+        indices = kwargs.get('indices', None)
         return_inits = kwargs.get('return_inits', False)
         return_result = kwargs.get('return_result', False)
+        save_grad_result = kwargs.get('save_grad_result', False)
         x = self.downsample(x)
         rank = get_rank()
         deq_mode = (train_step < 0) or (train_step >= self.pretrain_steps)
@@ -473,8 +481,21 @@ class MDEQNet(nn.Module):
                     result_bw = self.b_solver(lambda y: autograd.grad(new_z1, z1, y, retain_graph=True)[0] + grad, grad_init_,
                                           threshold=b_thres, stop_mode=self.stop_mode, name="backward")
                     new_grad = result_bw.pop('result')
-                    self.result_bw = result_bw
-                    self.new_grad = new_grad.detach().clone().cpu()
+                    # save the new gradients per elements of the batch
+                    # according to their indices
+                    if self.warm_init_dir is not None and indices is not None:
+                        for i_batch, idx in enumerate(indices):
+                            g = new_grad[i_batch].cpu()
+                            fname = f'{idx.cpu().numpy().item()}_back.pt'
+                            torch.save(
+                                g,
+                                self.warm_init_dir / fname,
+                            )
+                    if save_grad_result:
+                        torch.save(
+                            result_bw,
+                            self.warm_init_dir / 'grad_result.pt',
+                        )
                     return new_grad
                 self.hook = new_z1.register_hook(backward_hook)
 

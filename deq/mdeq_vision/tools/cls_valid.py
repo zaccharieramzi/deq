@@ -58,6 +58,9 @@ def parse_args():
                         help='random seed',
                         type=int,
                         default=None)
+    parser.add_argument('--valid_on_train',
+                        help='validate on training data',
+                        action='store_true')
     parser.add_argument('opts',
                         help="Modify config options using the command-line",
                         default=None,
@@ -132,7 +135,8 @@ def main():
     dataset_name = config.DATASET.DATASET
     topk = (1,5) if dataset_name == 'imagenet' else (1,)
     if dataset_name == 'imagenet':
-        valdir = os.path.join(config.DATASET.ROOT+'/images', config.DATASET.TEST_SET)
+        test_path = config.DATASET.TEST_SET if not args.valid_on_train else config.DATASET.TRAIN_SET
+        valdir = os.path.join(config.DATASET.ROOT+'/images', test_path)
         normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
         transform_valid = transforms.Compose([
             transforms.Resize(int(config.MODEL.IMAGE_SIZE[0] / 0.875)),
@@ -150,7 +154,7 @@ def main():
             transforms.ToTensor(),
             normalize,
         ])
-        valid_dataset = datasets.CIFAR10(root=f'{config.DATASET.ROOT}', train=False, download=True, transform=transform_valid)
+        valid_dataset = datasets.CIFAR10(root=f'{config.DATASET.ROOT}', train=args.valid_on_train, download=True, transform=transform_valid)
 
     test_batch_size = config.TEST.BATCH_SIZE_PER_GPU
     if torch.cuda.is_available():

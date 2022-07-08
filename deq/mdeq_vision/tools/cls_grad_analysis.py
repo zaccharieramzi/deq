@@ -390,7 +390,7 @@ def main():
         if torch.cuda.is_available():
             image = image.cuda()
             target = target.cuda()
-        output, *_ = model(image, train_step=-1)
+        output, *_ = model(image, save_grad_result=True, train_step=-1)
         loss = criterion(output, target)
         loss.backward()
         model.zero_grad()
@@ -410,6 +410,7 @@ def main():
             image,
             train_step=-1,
             grad_init=grad_init.unsqueeze(0),
+            save_grad_result=True,
         )
         loss = criterion(output, target)
         loss.backward()
@@ -434,6 +435,7 @@ def main():
             new_aug_image,
             train_step=-1,
             grad_init=aug_grad_init.unsqueeze(0),
+            save_grad_result=True,
         )
         loss = criterion(output, target)
         loss.backward()

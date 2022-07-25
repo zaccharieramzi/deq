@@ -77,6 +77,9 @@ def parse_args():
     parser.add_argument('--broyden_matrices',
                         help='whether to use broyden matrices when doing warm init',
                         action='store_true')
+    parser.add_argument('--use_batches',
+                        help='whether to use batches instead of single images',
+                        action='store_true')
     parser.add_argument('--n_images',
                         help='number of images to use for evaluation',
                         type=int,
@@ -244,6 +247,14 @@ def main():
         pin_memory=True,
         generator=torch.Generator(device=device_str),
     )
+    unshuffled_aug_train_loader = torch.utils.data.DataLoader(
+        aug_train_dataset,
+        batch_size=batch_size,
+        shuffle=False,
+        num_workers=config.WORKERS,
+        pin_memory=True,
+        generator=torch.Generator(device=device_str),
+    )
 
     # Learning rate scheduler
     if lr_scheduler is None:
@@ -273,14 +284,13 @@ def main():
     )
     aug_inits = {}
     fn = model.module._forward if torch.cuda.is_available() else model._forward
+    data_loader_iter = iter(unshuffled_aug_train_loader)
     for image_index in image_indices:
-        image, _ = train_dataset[image_index]
-        image = image.unsqueeze(0)
-        if torch.cuda.is_available():
-            image = image.cuda()
-        # pot in kwargs we can have: f_thres, b_thres, lim_mem
-        aug_image, _ = aug_train_dataset[image_index]
-        aug_image = aug_image.unsqueeze(0)
+        if args.use_batches:
+            aug_image = next(data_loader_iter)[0]
+        else:
+            aug_image, _ = aug_train_dataset[image_index]
+            aug_image = aug_image.unsqueeze(0)
         if torch.cuda.is_available():
             aug_image = aug_image.cuda()
         *_, new_inits = fn(aug_image, train_step=-1, return_inits=True)
@@ -317,9 +327,13 @@ def main():
     if args.dropout_eval:
         set_dropout_modules_active(model)
     differences_z1_warm_restart = []
+    data_loader_iter = iter(unshuffled_aug_train_loader)
     for image_index in image_indices:
-        new_aug_image, _ = aug_train_dataset[image_index]
-        new_aug_image = new_aug_image.unsqueeze(0)
+        if args.use_batches:
+            new_aug_image = next(data_loader_iter)[0]
+        else:
+            new_aug_image, _ = aug_train_dataset[image_index]
+            new_aug_image = new_aug_image.unsqueeze(0)
         if torch.cuda.is_available():
             new_aug_image = new_aug_image.cuda()
         *_, new_z1_warm_restart = fn(
@@ -334,7 +348,7 @@ def main():
             return_inits=True,
         )
         differences_z1_warm_restart.append(
-            ((new_z1_warm_restart[0] - new_z1[0])**2).cpu().detach().numpy().abs().mean().item()
+            ((new_z1_warm_restart[0] - new_z1[0])**2 / new_z1[0]**2).cpu().detach().numpy().mean().item()
         )
     print(differences_z1_warm_restart)
     return differences_z1_warm_restart

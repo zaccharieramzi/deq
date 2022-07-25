@@ -283,7 +283,7 @@ def main():
         replace=False,
     )
     aug_inits = {}
-    fn = model.module._forward if torch.cuda.is_available() else model._forward
+    fn = model
     data_loader_iter = iter(unshuffled_aug_train_loader)
     for image_index in image_indices:
         if args.use_batches:

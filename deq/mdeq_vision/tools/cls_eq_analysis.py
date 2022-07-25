@@ -77,6 +77,9 @@ def parse_args():
     parser.add_argument('--broyden_matrices',
                         help='whether to use broyden matrices when doing warm init',
                         action='store_true')
+    parser.add_argument('--use_batches',
+                        help='whether to use batches instead of single images',
+                        action='store_true')
     parser.add_argument('--n_images',
                         help='number of images to use for evaluation',
                         type=int,
@@ -248,6 +251,22 @@ def main():
         pin_memory=True,
         generator=torch.Generator(device=device_str),
     )
+    unshuffled_aug_train_loader = torch.utils.data.DataLoader(
+        aug_train_dataset,
+        batch_size=batch_size,
+        shuffle=False,
+        num_workers=config.WORKERS,
+        pin_memory=True,
+        generator=torch.Generator(device=device_str),
+    )
+    unshuffled_train_loader = torch.utils.data.DataLoader(
+        train_dataset,
+        batch_size=batch_size,
+        shuffle=False,
+        num_workers=config.WORKERS,
+        pin_memory=True,
+        generator=torch.Generator(device=device_str),
+    )
 
     # Learning rate scheduler
     if lr_scheduler is None:
@@ -322,9 +341,14 @@ def main():
     vanilla_inits = {}
     aug_inits = {}
     fn = model.module._forward if torch.cuda.is_available() else model._forward
+    aug_data_loader_iter = iter(unshuffled_aug_train_loader)
+    data_loader_iter = iter(unshuffled_train_loader)
     for image_index in image_indices:
-        image, _ = train_dataset[image_index]
-        image = image.unsqueeze(0)
+        if args.use_batches:
+            image = next(data_loader_iter)[0]
+        else:
+            image, _ = train_dataset[image_index]
+            image = image.unsqueeze(0)
         if torch.cuda.is_available():
             image = image.cuda()
         # pot in kwargs we can have: f_thres, b_thres, lim_mem
@@ -343,8 +367,11 @@ def main():
             init_type=None,
             is_aug=False,
         )
-        aug_image, _ = aug_train_dataset[image_index]
-        aug_image = aug_image.unsqueeze(0)
+        if args.use_batches:
+            aug_image = next(aug_data_loader_iter)[0]
+        else:
+            aug_image, _ = aug_train_dataset[image_index]
+            aug_image = aug_image.unsqueeze(0)
         if torch.cuda.is_available():
             aug_image = aug_image.cuda()
         aug_y_list, *_, result_info = fn(aug_image, train_step=-1, return_result=True)
@@ -385,9 +412,14 @@ def main():
     model.eval()
     if args.dropout_eval:
         set_dropout_modules_active(model)
+    aug_data_loader_iter = iter(unshuffled_aug_train_loader)
+    data_loader_iter = iter(unshuffled_train_loader)
     for image_index in image_indices:
-        image, _ = train_dataset[image_index]
-        image = image.unsqueeze(0)
+        if args.use_batches:
+            image = next(data_loader_iter)[0]
+        else:
+            image, _ = train_dataset[image_index]
+            image = image.unsqueeze(0)
         if torch.cuda.is_available():
             image = image.cuda()
         *_, result = fn(image, train_step=-1, return_result=True)
@@ -423,8 +455,11 @@ def main():
             init_type='vanilla',
             is_aug=False,
         )
-        new_aug_image, _ = aug_train_dataset[image_index]
-        new_aug_image = new_aug_image.unsqueeze(0)
+        if args.use_batches:
+            new_aug_image = next(aug_data_loader_iter)[0]
+        else:
+            new_aug_image, _ = aug_train_dataset[image_index]
+            new_aug_image = new_aug_image.unsqueeze(0)
         if torch.cuda.is_available():
             new_aug_image = new_aug_image.cuda()
         *_, result = fn(

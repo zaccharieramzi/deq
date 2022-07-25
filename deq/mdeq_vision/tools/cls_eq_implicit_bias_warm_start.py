@@ -371,6 +371,7 @@ def main():
         )
     print(differences_z1_warm_restart)
     print(differences_z1_randn)
+    print(differences_z1_test)
     return differences_z1_warm_restart, differences_z1_randn
 
 

@@ -334,7 +334,7 @@ def main():
             return_inits=True,
         )
         differences_z1_warm_restart.append(
-            ((new_z1_warm_restart - new_z1)**2).cpu().detach().numpy().abs().mean().item()
+            ((new_z1_warm_restart[0] - new_z1[0])**2).cpu().detach().numpy().abs().mean().item()
         )
     print(differences_z1_warm_restart)
     return differences_z1_warm_restart

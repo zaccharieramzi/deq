@@ -81,6 +81,10 @@ def parse_args():
                         help='number of images to use for evaluation',
                         type=int,
                         default=10)
+    parser.add_argument('--results_name',
+                        help='name of the results file',
+                        type=str,
+                        default='eq_init_results.csv')
     parser.add_argument('--seed',
                         help='random seed',
                         type=int,
@@ -438,7 +442,7 @@ def main():
             init_type='aug',
             is_aug=True,
         )
-    results_name = 'eq_init_results.csv'
+    results_name = args.results_name
     write_header = not Path(results_name).is_file()
     df_results.to_csv(
         results_name,

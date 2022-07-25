@@ -290,7 +290,7 @@ def main():
             z1=randn_init,
         )
         z2 = new_inits[0]
-        mse = torch.mean((z1 - z2)**2)
+        mse = torch.mean((z1 - z2)**2 / z1**2)
         df_diff = pd.DataFrame(data={
             'image_index': [image_index],
             'mse': [mse.cpu().numpy()],

@@ -328,6 +328,7 @@ def main():
         set_dropout_modules_active(model)
     differences_z1_warm_restart = []
     differences_z1_randn = []
+    differences_z1_randn_z1_mean_std = []
     differences_z1_test = []
     data_loader_iter = iter(unshuffled_aug_train_loader)
     for image_index in image_indices:
@@ -360,6 +361,12 @@ def main():
             return_inits=True,
             z1=torch.randn_like(aug_inits[image_index][0])*torch.std(aug_inits[image_index][0]) + torch.mean(aug_inits[image_index][0]),
         )
+        *_, new_z1_randn_z1 = fn(
+            new_aug_image,
+            train_step=-1,
+            return_inits=True,
+            z1=torch.randn_like(new_z1[0])*torch.std(new_z1[0]) + torch.mean(new_z1[0]),
+        )
         differences_z1_warm_restart.append(
             ((new_z1_warm_restart[0] - new_z1[0])**2 / new_z1[0]**2).cpu().detach().numpy().mean().item()
         )
@@ -369,9 +376,13 @@ def main():
         differences_z1_test.append(
             ((new_z1_test[0] - new_z1[0])**2 / new_z1[0]**2).cpu().detach().numpy().mean().item()
         )
+        differences_z1_randn_z1_mean_std.append(
+            ((new_z1_randn_z1[0] - new_z1[0])**2 / new_z1[0]**2).cpu().detach().numpy().mean().item()
+        )
     print(differences_z1_warm_restart)
     print(differences_z1_randn)
     print(differences_z1_test)
+    print(differences_z1_randn_z1_mean_std)
     return differences_z1_warm_restart, differences_z1_randn
 
 

@@ -255,7 +255,7 @@ def main():
         'rand_init_nstep',
     ])
     f_thres = 30
-    eps = 1e-3
+    eps = 1e-4
     model_size = Path(args.cfg).stem[9:]
     common_args = dict(
         model_size=model_size,

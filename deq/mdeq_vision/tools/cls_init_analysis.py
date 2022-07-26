@@ -243,6 +243,8 @@ def main():
         'dropout',
         'f_thres',
         'eps',
+        'vanilla_converged',
+        'rand_init_converged',
     ])
     f_thres = 20
     eps = 1e-5
@@ -274,7 +276,14 @@ def main():
             image,
             train_step=-1,
             return_inits=True,
-            eps=eps,
+            f_eps=eps,
+            f_thres=f_thres,
+        )
+        *_, result_vanilla = fn(
+            image,
+            train_step=-1,
+            return_result=True,
+            f_eps=eps,
             f_thres=f_thres,
         )
         z1 = new_inits[0]
@@ -285,7 +294,15 @@ def main():
             image,
             train_step=-1,
             return_inits=True,
-            eps=eps,
+            f_eps=eps,
+            f_thres=f_thres,
+            z1=randn_init,
+        )
+        *_, result_rand_init = fn(
+            image,
+            train_step=-1,
+            return_result=True,
+            f_eps=eps,
             f_thres=f_thres,
             z1=randn_init,
         )
@@ -294,6 +311,8 @@ def main():
         df_diff = pd.DataFrame(data={
             'image_index': [image_index],
             'mse': [mse.cpu().numpy()],
+            'vanilla_converged': [result_vanilla['abs_trace'][-1] < eps],
+            'rand_init_converged': [result_rand_init['abs_trace'][-1] < eps],
             **common_args,
         })
         df_results = df_results.append(df_diff, ignore_index=True)

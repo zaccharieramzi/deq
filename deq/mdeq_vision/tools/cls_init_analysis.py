@@ -244,9 +244,13 @@ def main():
         'f_thres',
         'eps',
         'vanilla_converged',
+        'vanilla_lowest',
+        'vanilla_nstep',
         'rand_init_converged',
+        'rand_init_lowest',
+        'rand_init_nstep',
     ])
-    f_thres = 20
+    f_thres = 30
     eps = 1e-3
     model_size = Path(args.cfg).stem[9:]
     common_args = dict(
@@ -312,7 +316,11 @@ def main():
             'image_index': [image_index],
             'mse': [mse.cpu().numpy()],
             'vanilla_converged': [result_vanilla['lowest'] < eps],
+            'vanilla_lowest': [result_vanilla['lowest']],
+            'vanilla_nstep': [result_vanilla['nstep']],
             'rand_init_converged': [result_rand_init['lowest'] < eps],
+            'rand_init_lowest': [result_rand_init['lowest']],
+            'rand_init_nstep': [result_rand_init['nstep']],
             **common_args,
         })
         df_results = df_results.append(df_diff, ignore_index=True)

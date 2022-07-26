@@ -74,6 +74,9 @@ def parse_args():
     parser.add_argument('--dropout_eval',
                         help='whether to use dropout during the evaluation',
                         action='store_true')
+    parser.add_argument('--ls',
+                        help='whether to use line search',
+                        action='store_true')
     parser.add_argument('--n_images',
                         help='number of images to use for evaluation',
                         type=int,
@@ -243,6 +246,7 @@ def main():
         'dropout',
         'f_thres',
         'eps',
+        'ls',
         'vanilla_converged',
         'vanilla_lowest',
         'vanilla_nstep',
@@ -262,6 +266,7 @@ def main():
         dropout=args.dropout_eval,
         f_thres=f_thres,
         eps=eps,
+        f_ls=args.ls,
     )
 
     image_indices = np.random.choice(
@@ -282,6 +287,7 @@ def main():
             return_inits=True,
             f_eps=eps,
             f_thres=f_thres,
+            f_ls=args.ls,
         )
         *_, result_vanilla = fn(
             image,
@@ -289,6 +295,7 @@ def main():
             return_result=True,
             f_eps=eps,
             f_thres=f_thres,
+            f_ls=args.ls,
         )
         z1 = new_inits[0]
 
@@ -300,6 +307,7 @@ def main():
             return_inits=True,
             f_eps=eps,
             f_thres=f_thres,
+            f_ls=args.ls,
             z1=randn_init,
         )
         *_, result_rand_init = fn(
@@ -308,6 +316,7 @@ def main():
             return_result=True,
             f_eps=eps,
             f_thres=f_thres,
+            ls=args.ls,
             z1=randn_init,
         )
         z2 = new_inits[0]

@@ -311,8 +311,8 @@ def main():
         df_diff = pd.DataFrame(data={
             'image_index': [image_index],
             'mse': [mse.cpu().numpy()],
-            'vanilla_converged': [result_vanilla['abs_trace'][-1] < eps],
-            'rand_init_converged': [result_rand_init['abs_trace'][-1] < eps],
+            'vanilla_converged': [result_vanilla['lowest'] < eps],
+            'rand_init_converged': [result_rand_init['lowest'] < eps],
             **common_args,
         })
         df_results = df_results.append(df_diff, ignore_index=True)

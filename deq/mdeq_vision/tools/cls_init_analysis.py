@@ -247,7 +247,7 @@ def main():
         'rand_init_converged',
     ])
     f_thres = 20
-    eps = 1e-5
+    eps = 1e-3
     model_size = Path(args.cfg).stem[9:]
     common_args = dict(
         model_size=model_size,

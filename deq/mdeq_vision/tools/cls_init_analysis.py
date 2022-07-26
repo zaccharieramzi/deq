@@ -74,6 +74,9 @@ def parse_args():
     parser.add_argument('--dropout_eval',
                         help='whether to use dropout during the evaluation',
                         action='store_true')
+    parser.add_argument('--ls',
+                        help='whether to use line search',
+                        action='store_true')
     parser.add_argument('--n_images',
                         help='number of images to use for evaluation',
                         type=int,
@@ -243,9 +246,16 @@ def main():
         'dropout',
         'f_thres',
         'eps',
+        'ls',
+        'vanilla_converged',
+        'vanilla_lowest',
+        'vanilla_nstep',
+        'rand_init_converged',
+        'rand_init_lowest',
+        'rand_init_nstep',
     ])
-    f_thres = 8
-    eps = 1e-3
+    f_thres = 40
+    eps = 1e-5
     model_size = Path(args.cfg).stem[9:]
     common_args = dict(
         model_size=model_size,
@@ -256,6 +266,7 @@ def main():
         dropout=args.dropout_eval,
         f_thres=f_thres,
         eps=eps,
+        f_ls=args.ls,
     )
 
     image_indices = np.random.choice(
@@ -274,8 +285,17 @@ def main():
             image,
             train_step=-1,
             return_inits=True,
-            eps=eps,
+            f_eps=eps,
             f_thres=f_thres,
+            f_ls=args.ls,
+        )
+        *_, result_vanilla = fn(
+            image,
+            train_step=-1,
+            return_result=True,
+            f_eps=eps,
+            f_thres=f_thres,
+            f_ls=args.ls,
         )
         z1 = new_inits[0]
 
@@ -285,15 +305,31 @@ def main():
             image,
             train_step=-1,
             return_inits=True,
-            eps=eps,
+            f_eps=eps,
             f_thres=f_thres,
+            f_ls=args.ls,
+            z1=randn_init,
+        )
+        *_, result_rand_init = fn(
+            image,
+            train_step=-1,
+            return_result=True,
+            f_eps=eps,
+            f_thres=f_thres,
+            ls=args.ls,
             z1=randn_init,
         )
         z2 = new_inits[0]
-        mse = torch.mean((z1 - z2)**2)
+        mse = torch.mean((z1 - z2)**2 / z1**2)
         df_diff = pd.DataFrame(data={
             'image_index': [image_index],
             'mse': [mse.cpu().numpy()],
+            'vanilla_converged': [result_vanilla['lowest'] < eps],
+            'vanilla_lowest': [result_vanilla['lowest']],
+            'vanilla_nstep': [result_vanilla['nstep']],
+            'rand_init_converged': [result_rand_init['lowest'] < eps],
+            'rand_init_lowest': [result_rand_init['lowest']],
+            'rand_init_nstep': [result_rand_init['nstep']],
             **common_args,
         })
         df_results = df_results.append(df_diff, ignore_index=True)

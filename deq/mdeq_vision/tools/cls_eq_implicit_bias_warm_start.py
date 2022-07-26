@@ -84,10 +84,6 @@ def parse_args():
                         help='number of images to use for evaluation',
                         type=int,
                         default=10)
-    parser.add_argument('--results_name',
-                        help='name of the results file',
-                        type=str,
-                        default='eq_init_results.csv')
     parser.add_argument('--seed',
                         help='random seed',
                         type=int,
@@ -259,14 +255,6 @@ def main():
         pin_memory=True,
         generator=torch.Generator(device=device_str),
     )
-    unshuffled_train_loader = torch.utils.data.DataLoader(
-        train_dataset,
-        batch_size=batch_size,
-        shuffle=False,
-        num_workers=config.WORKERS,
-        pin_memory=True,
-        generator=torch.Generator(device=device_str),
-    )
 
     # Learning rate scheduler
     if lr_scheduler is None:
@@ -289,98 +277,24 @@ def main():
     model.eval()
     if args.dropout_eval:
         set_dropout_modules_active(model)
-    df_results = pd.DataFrame(columns=[
-        'image_index',
-        'before_training',
-        'trace',
-        'abs_trace',
-        'init_type',
-        'is_aug',
-        'i_iter',
-        'analysis_time',
-        'seed',
-        'dataset',
-        'model_size',
-        'checkpoint',
-        'dropout',
-        'percent',
-        'broyden_matrices',
-    ])
-    model_size = Path(args.cfg).stem[9:]
-    common_args = dict(
-        model_size=model_size,
-        dataset=dataset_name,
-        checkpoint=last_epoch,
-        seed=args.seed,
-        analysis_time=time.time(),
-        dropout=args.dropout_eval,
-        percent=args.percent*100,
-        broyden_matrices=args.broyden_matrices,
-    )
-
-    def fill_df_results(df_results, result_info,  **data_kwargs):
-        n_step = result_info['nstep']
-        trace = result_info['rel_trace'][:n_step]
-        abs_trace = result_info['abs_trace'][:n_step]
-        i_iter = np.arange(n_step)
-        df_trace = pd.DataFrame(data={
-            'trace': trace,
-            'abs_trace': abs_trace,
-            'i_iter': i_iter,
-            **data_kwargs,
-            **common_args,
-        })
-        df_results = df_results.append(df_trace, ignore_index=True)
-        return df_results
-
     image_indices = np.random.choice(
         len(train_dataset),
         args.n_images,
         replace=False,
     )
-    vanilla_inits = {}
     aug_inits = {}
-    fn = model.module._forward if torch.cuda.is_available() else model._forward
-    aug_data_loader_iter = iter(unshuffled_aug_train_loader)
-    data_loader_iter = iter(unshuffled_train_loader)
+    fn = model
+    data_loader_iter = iter(unshuffled_aug_train_loader)
     for image_index in image_indices:
         if args.use_batches:
-            image = next(data_loader_iter)[0]
-        else:
-            image, _ = train_dataset[image_index]
-            image = image.unsqueeze(0)
-        if torch.cuda.is_available():
-            image = image.cuda()
-        # pot in kwargs we can have: f_thres, b_thres, lim_mem
-        y_list, *_, result_info = fn(image, train_step=-1, return_result=True)
-        vanilla_inits[image_index] = {
-            'y_list': y_list,
-            'Us': result_info['Us'],
-            'VTs': result_info['VTs'],
-            'nstep': result_info['nstep'],
-        }
-        df_results = fill_df_results(
-            df_results,
-            result_info,
-            image_index=image_index,
-            before_training=True,
-            init_type=None,
-            is_aug=False,
-        )
-        if args.use_batches:
-            aug_image = next(aug_data_loader_iter)[0]
+            aug_image = next(data_loader_iter)[0]
         else:
             aug_image, _ = aug_train_dataset[image_index]
             aug_image = aug_image.unsqueeze(0)
         if torch.cuda.is_available():
             aug_image = aug_image.cuda()
-        aug_y_list, *_, result_info = fn(aug_image, train_step=-1, return_result=True)
-        aug_inits[image_index] = {
-            'y_list': aug_y_list,
-            'Us': result_info['Us'],
-            'VTs': result_info['VTs'],
-            'nstep': result_info['nstep'],
-        }
+        *_, new_inits = fn(aug_image, train_step=-1, return_inits=True)
+        aug_inits[image_index] = new_inits
 
     # Training code
     topk = (1, 5) if dataset_name == 'imagenet' else (1,)
@@ -412,80 +326,51 @@ def main():
     model.eval()
     if args.dropout_eval:
         set_dropout_modules_active(model)
-    aug_data_loader_iter = iter(unshuffled_aug_train_loader)
-    data_loader_iter = iter(unshuffled_train_loader)
+    differences_z1_warm_restart = []
+    differences_z1_gt = []
+    differences_warm_restart_gt = []
+    data_loader_iter = iter(unshuffled_aug_train_loader)
+    f_thres = 40
+    eps = 1e-5
     for image_index in image_indices:
         if args.use_batches:
-            image = next(data_loader_iter)[0]
-        else:
-            image, _ = train_dataset[image_index]
-            image = image.unsqueeze(0)
-        if torch.cuda.is_available():
-            image = image.cuda()
-        *_, result = fn(image, train_step=-1, return_result=True)
-        df_results = fill_df_results(
-            df_results,
-            result,
-            image_index=image_index,
-            before_training=False,
-            init_type=None,
-            is_aug=False,
-        )
-        add_kwargs_vanilla = {}
-        add_kwargs_aug = {}
-        if args.broyden_matrices:
-            for add_kwargs, inits in zip([add_kwargs_vanilla, add_kwargs_aug], [vanilla_inits, aug_inits]):
-                init_tensors = [
-                    inits[image_index][k]
-                    for k in ['nstep', 'Us', 'VTs']
-                ]
-                add_kwargs['init_tensors'] = init_tensors
-        *_, result = fn(
-            image,
-            train_step=-1,
-            return_result=True,
-            z_list=vanilla_inits[image_index]['y_list'],
-            **add_kwargs_vanilla,
-        )
-        df_results = fill_df_results(
-            df_results,
-            result,
-            image_index=image_index,
-            before_training=False,
-            init_type='vanilla',
-            is_aug=False,
-        )
-        if args.use_batches:
-            new_aug_image = next(aug_data_loader_iter)[0]
+            new_aug_image = next(data_loader_iter)[0]
         else:
             new_aug_image, _ = aug_train_dataset[image_index]
             new_aug_image = new_aug_image.unsqueeze(0)
         if torch.cuda.is_available():
             new_aug_image = new_aug_image.cuda()
-        *_, result = fn(
+        *_, new_z1_warm_restart = fn(
             new_aug_image,
             train_step=-1,
-            return_result=True,
-            z_list=aug_inits[image_index]['y_list'],
-            **add_kwargs_aug,
+            return_inits=True,
+            z1=aug_inits[image_index][0],
         )
-        df_results = fill_df_results(
-            df_results,
-            result,
-            image_index=image_index,
-            before_training=False,
-            init_type='aug',
-            is_aug=True,
+        *_, new_z1 = fn(
+            new_aug_image,
+            train_step=-1,
+            return_inits=True,
         )
-    results_name = args.results_name
-    write_header = not Path(results_name).is_file()
-    df_results.to_csv(
-        results_name,
-        mode='a',
-        header=write_header,
-        index=False,
-    )
-    return df_results
+        *_, new_z1_gt = fn(
+            new_aug_image,
+            train_step=-1,
+            return_inits=True,
+            f_thres=f_thres,
+            f_eps=eps,
+        )
+        differences_z1_warm_restart.append(
+            ((new_z1_warm_restart[0] - new_z1[0])**2 / new_z1[0]**2).cpu().detach().numpy().mean().item()
+        )
+        differences_z1_gt.append(
+            ((new_z1_gt[0] - new_z1[0])**2 / new_z1_gt[0]**2).cpu().detach().numpy().mean().item()
+        )
+        differences_warm_restart_gt.append(
+            ((new_z1_warm_restart[0] - new_z1_gt[0])**2 / new_z1_gt[0]**2).cpu().detach().numpy().mean().item()
+        )
+    print(differences_z1_warm_restart)
+    print(differences_z1_gt)
+    print(differences_warm_restart_gt)
+    return differences_z1_warm_restart
 
 
 if __name__ == '__main__':

@@ -372,6 +372,8 @@ class MDEQNet(nn.Module):
         self.f_thres = cfg['DEQ']['F_THRES']
         self.b_thres = cfg['DEQ']['B_THRES']
         self.stop_mode = cfg['DEQ']['STOP_MODE']
+        self.f_eps = cfg['DEQ']['F_EPS']
+        self.b_eps = cfg['DEQ']['B_EPS']
 
         # Update global variables
         DEQ_EXPAND = cfg['MODEL']['EXPANSION_FACTOR']
@@ -403,7 +405,10 @@ class MDEQNet(nn.Module):
         """
         num_branches = self.num_branches
         f_thres = kwargs.get('f_thres', self.f_thres)
+        f_eps = kwargs.get('f_eps', self.f_eps)
+        f_ls = kwargs.get('f_ls', False)
         b_thres = kwargs.get('b_thres', self.b_thres)
+        b_eps = kwargs.get('b_eps', self.b_eps)
         z_list = kwargs.get('z_list', None)
         z1 = kwargs.get('z1', None)
         init_tensors = kwargs.get('init_tensors', None)
@@ -462,6 +467,8 @@ class MDEQNet(nn.Module):
                     stop_mode=self.stop_mode,
                     name="forward",
                     init_tensors=init_tensors,
+                    eps=f_eps,
+                    ls=f_ls,
                 )
                 z1 = result_fw.pop('result')
             new_z1 = z1
@@ -486,7 +493,7 @@ class MDEQNet(nn.Module):
                     else:
                         grad_init_ = grad_init
                     result_bw = self.b_solver(lambda y: autograd.grad(new_z1, z1, y, retain_graph=True)[0] + grad, grad_init_,
-                                          threshold=b_thres, stop_mode=self.stop_mode, name="backward")
+                                          threshold=b_thres, stop_mode=self.stop_mode, name="backward", eps=b_eps)
                     new_grad = result_bw.pop('result')
                     # save the new gradients per elements of the batch
                     # according to their indices

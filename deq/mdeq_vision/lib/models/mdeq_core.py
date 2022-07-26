@@ -403,6 +403,7 @@ class MDEQNet(nn.Module):
         """
         num_branches = self.num_branches
         f_thres = kwargs.get('f_thres', self.f_thres)
+        f_eps = kwargs.get('f_eps', 1e-3)
         b_thres = kwargs.get('b_thres', self.b_thres)
         z_list = kwargs.get('z_list', None)
         z1 = kwargs.get('z1', None)
@@ -455,6 +456,7 @@ class MDEQNet(nn.Module):
                     stop_mode=self.stop_mode,
                     name="forward",
                     init_tensors=init_tensors,
+                    eps=f_eps,
                 )
                 z1 = result_fw.pop('result')
             new_z1 = z1

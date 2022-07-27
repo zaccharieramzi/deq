@@ -471,6 +471,12 @@ class MDEQNet(nn.Module):
                     ls=f_ls,
                 )
                 z1 = result_fw.pop('result')
+                logger.info(
+                    "Forward step result:"
+                    f"\t{result_fw['nstep']} steps"
+                    f"\t{result_fw['lowest']} abs lowest"
+                    f"\t Prot break: {result_fw['prot_break']}"
+                )
             new_z1 = z1
 
             if (not self.training) and spectral_radius_mode:

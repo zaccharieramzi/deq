@@ -26,6 +26,7 @@ from deq.mdeq_vision.lib import models
 from deq.mdeq_vision.lib.config import config
 from deq.mdeq_vision.lib.config import update_config
 from deq.mdeq_vision.lib.core.cls_function import validate
+from deq.mdeq_vision.lib.datasets.indexed_dataset import IndexedDataset
 from deq.mdeq_vision.lib.utils.modelsummary import get_model_summary
 from deq.mdeq_vision.lib.utils.utils import create_logger
 
@@ -133,6 +134,20 @@ def main():
         # loading from a checkpoint and not the final state
         model.load_state_dict(state_dict['state_dict'])
 
+    if args.use_warm_init:
+        # afterwards we load the warm_inits dict
+        # using the pth.tar file corresponding to the model state file
+        warm_init_file = model_state_file.replace('.pth.tar', '_warm_inits.pth.tar')
+        if device_str == 'cuda':
+            warm_inits = torch.load(warm_init_file)
+        else:
+            warm_inits = torch.load(
+                warm_init_file,
+                map_location='cpu',
+            )
+    else:
+        warm_inits = None
+
     if torch.cuda.is_available():
         gpus = list(config.GPUS)
         model = torch.nn.DataParallel(model, device_ids=gpus).cuda()
@@ -170,6 +185,10 @@ def main():
     test_batch_size = config.TEST.BATCH_SIZE_PER_GPU
     if torch.cuda.is_available():
         test_batch_size *= len(gpus)
+
+    if args.use_warm_init:
+        valid_dataset = IndexedDataset(valid_dataset)
+
     valid_loader = torch.utils.data.DataLoader(
         valid_dataset,
         batch_size=test_batch_size,
@@ -181,7 +200,8 @@ def main():
 
     # evaluate on validation set
     perf_indicator = validate(config, valid_loader, model, criterion, None, epoch=-1, output_dir=final_output_dir,
-             tb_log_dir=tb_log_dir, writer_dict=None, topk=topk, spectral_radius_mode=config.DEQ.SPECTRAL_RADIUS_MODE)
+             tb_log_dir=tb_log_dir, writer_dict=None, topk=topk, spectral_radius_mode=config.DEQ.SPECTRAL_RADIUS_MODE,
+             warm_inits=warm_inits)
 
     if args.results_name is not None:
         write_header = not Path(args.results_name).is_file()

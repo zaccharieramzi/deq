@@ -155,6 +155,7 @@ def main():
     best_perf = 0.0
     best_model = False
     last_epoch = config.TRAIN.BEGIN_EPOCH
+    warm_inits = None
     if config.TRAIN.RESUME:
         checkpoint_name = 'checkpoint'
         if seeding:
@@ -182,6 +183,8 @@ def main():
                 lr_scheduler.load_state_dict(checkpoint['lr_scheduler'])
             logger.info("=> loaded checkpoint (epoch {})".format(checkpoint['epoch']))
             best_model = True
+            warm_inits = checkpoint['warm_inits']
+
 
     # Data loading code
     dataset_name = config.DATASET.DATASET
@@ -221,7 +224,6 @@ def main():
         train_dataset = datasets.CIFAR10(root=f'{config.DATASET.ROOT}', train=True, download=True, transform=transform_train)
         valid_dataset = datasets.CIFAR10(root=f'{config.DATASET.ROOT}', train=False, download=True, transform=transform_valid)
 
-    warm_inits = None
     if config.TRAIN.WARM_INIT:
         # this is where we modify the dataset to include the indices
         # in order to have a map from the indices to the warm inits
@@ -325,6 +327,7 @@ def main():
                 'optimizer': optimizer.state_dict(),
                 'lr_scheduler': lr_scheduler.state_dict(),
                 'train_global_steps': writer_dict['train_global_steps'],
+                'warm_inits': warm_inits,
             }, best_model, final_output_dir, filename=checkpoint_file)
 
     base_final_state_name = 'final_state'

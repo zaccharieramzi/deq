@@ -229,7 +229,8 @@ def main():
         # in order to have a map from the indices to the warm inits
         if dataset_name == 'cifar10' and not config.TRAIN.WARM_INIT_BACK:
             train_dataset = IndexedDataset(train_dataset)
-            warm_inits = {}
+            if warm_inits is None:
+                warm_inits = {}
         else:
             train_dataset = WarmInitDataset(
                 train_dataset,

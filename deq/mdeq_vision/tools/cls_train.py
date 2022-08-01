@@ -357,6 +357,11 @@ def main():
     logger.info('saving final model state to {}'.format(final_model_state_file))
     state_dict = model.module.state_dict() if torch.cuda.is_available() else model.state_dict()
     torch.save(state_dict, final_model_state_file)
+    final_warm_init_file = os.path.join(
+        final_output_dir,
+        f'{base_final_state_name}_warm_inits.pth.tar',
+    )
+    torch.save(warm_inits, final_warm_init_file)
     if writer_dict['writer'] is not None:
         writer_dict['writer'].close()
     if args.results_name is not None:

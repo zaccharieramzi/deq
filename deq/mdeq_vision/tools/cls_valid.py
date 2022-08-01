@@ -68,6 +68,9 @@ def parse_args():
     parser.add_argument('--valid_on_train',
                         help='validate on training data',
                         action='store_true')
+    parser.add_argument('--use_warm_init',
+                        help='use warm inits when validating on train data',
+                        action='store_true')
     parser.add_argument('opts',
                         help="Modify config options using the command-line",
                         default=None,
@@ -76,6 +79,7 @@ def parse_args():
     update_config(config, args)
 
     return args
+
 
 def main():
     args = parse_args()

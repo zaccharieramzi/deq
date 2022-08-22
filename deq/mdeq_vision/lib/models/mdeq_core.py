@@ -363,6 +363,7 @@ class MDEQNet(nn.Module):
         self.downsample_times = cfg['MODEL']['DOWNSAMPLE_TIMES']
         self.fullstage_cfg = cfg['MODEL']['EXTRA']['FULL_STAGE']
         self.pretrain_steps = cfg['TRAIN']['PRETRAIN_STEPS']
+        self.head_only = cfg['TRAIN']['HEAD_ONLY']
 
         # DEQ related
         self.f_solver = eval(cfg['DEQ']['F_SOLVER'])
@@ -517,7 +518,8 @@ class MDEQNet(nn.Module):
                             self.warm_init_dir / 'grad_result.pt',
                         )
                     return new_grad
-                self.hook = new_z1.register_hook(backward_hook)
+                if not self.head_only:
+                    self.hook = new_z1.register_hook(backward_hook)
         if data_aug_invariance:
             batched_z1 = new_z1[..., 0].reshape(
                 n_unique_images,

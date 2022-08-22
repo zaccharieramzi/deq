@@ -75,6 +75,7 @@ class MDEQClsNet(MDEQNet):
         super(MDEQClsNet, self).__init__(cfg, BN_MOMENTUM=BN_MOMENTUM, **kwargs)
         self.head_channels = cfg['MODEL']['EXTRA']['FULL_STAGE']['HEAD_CHANNELS']
         self.final_chansize = cfg['MODEL']['EXTRA']['FULL_STAGE']['FINAL_CHANSIZE']
+        self.head_only = cfg['TRAIN']['HEAD_ONLY']
 
         # Classification Head
         self.incre_modules, self.downsamp_modules, self.final_layer = self._make_head(self.num_channels)
@@ -149,7 +150,11 @@ class MDEQClsNet(MDEQNet):
         return y
 
     def forward(self, x, train_step=0, **kwargs):
-        y_list, *other_returns = self._forward(x, train_step, **kwargs)
+        if self.head_only:
+            with torch.no_grad():
+                y_list, *other_returns = self._forward(x, train_step, **kwargs)
+        else:
+            y_list, *other_returns = self._forward(x, train_step, **kwargs)
         return self.predict(y_list), *other_returns
 
     def init_weights(self, pretrained='',):

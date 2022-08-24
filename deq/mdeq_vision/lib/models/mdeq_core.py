@@ -375,6 +375,7 @@ class MDEQNet(nn.Module):
         self.stop_mode = cfg['DEQ']['STOP_MODE']
         self.f_eps = cfg['DEQ']['F_EPS']
         self.b_eps = cfg['DEQ']['B_EPS']
+        self.rand_init = cfg['DEQ']['RAND_INIT']
 
         # Update global variables
         DEQ_EXPAND = cfg['MODEL']['EXPANSION_FACTOR']
@@ -436,7 +437,10 @@ class MDEQNet(nn.Module):
             x_list.append(torch.zeros(bsz, self.num_channels[i], H//2, W//2).to(x))   # ... and the rest are all zeros
 
         if z_list is None or not deq_mode:
-            z_list = [torch.zeros_like(elem) for elem in x_list]
+            z_list = [
+                torch.randn_like(elem) if self.rand_init else torch.zeros_like(elem)
+                for elem in x_list
+            ]
         if z1 is None or not deq_mode:
             z1 = list2vec(z_list)
         cutoffs = [(elem.size(1), elem.size(2), elem.size(3)) for elem in z_list]

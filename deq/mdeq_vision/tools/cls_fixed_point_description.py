@@ -151,14 +151,19 @@ def main():
     if torch.cuda.is_available():
         criterion = criterion.cuda()
 
-    last_epoch = config.TRAIN.BEGIN_EPOCH
-    checkpoint_name = 'checkpoint'
-    if seeding:
-        checkpoint_name += f'_seed{seed}'
-    model_state_file = os.path.join(
-        final_output_dir,
-        f'{checkpoint_name}_{last_epoch}.pth.tar',
-    )
+    if config.TEST.MODEL_FILE:
+        logger.info('=> loading model from {}'.format(config.TEST.MODEL_FILE))
+        model_state_file = config.TEST.MODEL_FILE
+    else:
+        base_final_state_name = 'final_state'
+        last_epoch = config.TRAIN.BEGIN_EPOCH
+        if seeding:
+            base_final_state_name += f'_seed{seed}'
+        model_state_file = os.path.join(
+            final_output_dir,
+            f'{base_final_state_name}_{last_epoch}.pth.tar',
+        )
+        logger.info('=> loading model from {}'.format(model_state_file))
     if torch.cuda.is_available():
         checkpoint = torch.load(model_state_file)
         model.module.load_state_dict(checkpoint['state_dict'])

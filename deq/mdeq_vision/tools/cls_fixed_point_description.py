@@ -237,7 +237,7 @@ def main():
         fixed_point = new_inits[0]
         # append to fixed_point_norms the norm of each sample in
         # fixed_point (batch_size x ...)
-        norms = fixed_point.norm(dim=(1, 2, 3))
+        norms = fixed_point.norm(dim=(1, 2), p=2)
         fixed_point_norms.append(norms[0].cpu().numpy().item())
     print(fixed_point_norms)
     return fixed_point_norms

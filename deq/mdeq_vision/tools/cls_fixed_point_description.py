@@ -233,7 +233,7 @@ def main():
         if torch.cuda.is_available():
             image = image.cuda()
         # pot in kwargs we can have: f_thres, b_thres, lim_mem
-        *_, new_inits = fn(image, train_step=-1, return_init=True)
+        *_, new_inits = fn(image, train_step=-1, return_inits=True)
         fixed_point = new_inits[0]
         # append to fixed_point_norms the norm of each sample in
         # fixed_point (batch_size x ...)

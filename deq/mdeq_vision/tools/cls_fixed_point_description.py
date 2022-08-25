@@ -179,7 +179,6 @@ def main():
             # loading from a checkpoint and not the final state
             model.load_state_dict(checkpoint['state_dict'])
 
-    logger.info("=> loaded checkpoint (epoch {})".format(checkpoint['epoch']))
 
     # Data loading code
     dataset_name = config.DATASET.DATASET

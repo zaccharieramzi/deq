@@ -166,10 +166,18 @@ def main():
         logger.info('=> loading model from {}'.format(model_state_file))
     if torch.cuda.is_available():
         checkpoint = torch.load(model_state_file)
-        model.module.load_state_dict(checkpoint['state_dict'])
+        try:
+            model.module.load_state_dict(checkpoint)
+        except RuntimeError:
+            # loading from a checkpoint and not the final state
+            model.module.load_state_dict(checkpoint['state_dict'])
     else:
         checkpoint = torch.load(model_state_file, map_location='cpu')
-        model.load_state_dict(checkpoint['state_dict'])
+        try:
+            model.load_state_dict(checkpoint)
+        except RuntimeError:
+            # loading from a checkpoint and not the final state
+            model.load_state_dict(checkpoint['state_dict'])
 
     logger.info("=> loaded checkpoint (epoch {})".format(checkpoint['epoch']))
 

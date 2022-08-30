@@ -11,8 +11,7 @@ import pprint
 import time
 
 import numpy as np
-import pandas as pd
-from termcolor import colored
+from scipy.spatial import distance_matrix
 import torch
 import torch.nn as nn
 import torch.nn.parallel
@@ -227,6 +226,8 @@ def main():
     )
     fn = model.module._forward if torch.cuda.is_available() else model._forward
     fixed_point_norms = []
+    fixed_points = []
+    original_images = []
     for image_index in image_indices:
         image, _ = aug_train_dataset[image_index]
         image = image.unsqueeze(0)
@@ -235,12 +236,25 @@ def main():
         # pot in kwargs we can have: f_thres, b_thres, lim_mem
         *_, new_inits = fn(image, train_step=-1, return_inits=True)
         fixed_point = new_inits[0]
+        fixed_points.append(fixed_point.cpu().detach().numpy().reshape(-1))
+        original_images.append(image.cpu().detach().numpy().reshape(-1))
         # append to fixed_point_norms the norm of each sample in
         # fixed_point (batch_size x ...)
         norms = fixed_point.norm(dim=(1, 2), p=2)
         fixed_point_norms.append(norms[0].cpu().numpy().item())
     print(fixed_point_norms)
-    return fixed_point_norms
+    # compute the distance matrix between all fixed points
+    fixed_points = np.stack(fixed_points)
+    fixed_points_distances = distance_matrix(fixed_points, fixed_points)
+    original_images = np.stack(original_images)
+    original_images_distances = distance_matrix(
+        original_images,
+        original_images,
+    )
+    with np.printoptions(precision=3, suppress=True):
+        print(fixed_points_distances)
+        print(original_images_distances)
+    return fixed_point_norms, fixed_points_distances, original_images_distances
 
 
 if __name__ == '__main__':

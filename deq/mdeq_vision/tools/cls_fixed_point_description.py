@@ -6,9 +6,7 @@ from __future__ import print_function
 
 import argparse
 import os
-from pathlib import Path
 import pprint
-import time
 
 import numpy as np
 from scipy.spatial import distance_matrix
@@ -21,14 +19,11 @@ import torch.utils.data
 import torch.utils.data.distributed
 import torchvision.datasets as datasets
 import torchvision.transforms as transforms
-from torch.utils.tensorboard import SummaryWriter
 
 from deq.lib.optimizations import VariationalHidDropout2d
 from deq.mdeq_vision.lib import models  # noqa F401
 from deq.mdeq_vision.lib.config import config
 from deq.mdeq_vision.lib.config import update_config
-from deq.mdeq_vision.lib.core.cls_function import train
-from deq.mdeq_vision.lib.utils.utils import get_optimizer
 from deq.mdeq_vision.lib.utils.utils import create_logger
 
 
@@ -115,11 +110,7 @@ def main():
     except RuntimeError:
         pass
     if torch.cuda.is_available():
-        print(colored("Setting default tensor type to cuda.FloatTensor", "cyan"))
         torch.set_default_tensor_type('torch.cuda.FloatTensor')
-        device_str = 'cuda'
-    else:
-        device_str = 'cpu'
 
     logger, final_output_dir, tb_log_dir = create_logger(
         config, args.cfg, 'train')

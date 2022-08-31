@@ -483,7 +483,7 @@ class MDEQNet(nn.Module):
                     new_z1 = func(z1.requires_grad_())
                 _, sradius = power_method(new_z1, z1, n_iters=150)
 
-            if self.training:
+            if self.training and not self.head_only:
                 new_z1 = func(z1.requires_grad_())
                 if compute_jac_loss:
                     jac_loss = jac_loss_estimate(new_z1, z1)
@@ -516,8 +516,7 @@ class MDEQNet(nn.Module):
                             self.warm_init_dir / 'grad_result.pt',
                         )
                     return new_grad
-                if not self.head_only:
-                    self.hook = new_z1.register_hook(backward_hook)
+                self.hook = new_z1.register_hook(backward_hook)
         if data_aug_invariance:
             batched_z1 = new_z1[..., 0].reshape(
                 n_unique_images,

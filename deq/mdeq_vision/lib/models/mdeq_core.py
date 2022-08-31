@@ -488,6 +488,9 @@ class MDEQNet(nn.Module):
                 if compute_jac_loss:
                     jac_loss = jac_loss_estimate(new_z1, z1)
 
+                def jac(y):
+                    return autograd.grad(new_z1, z1, y, retain_graph=True)[0]
+
                 def backward_hook(grad):
                     if self.hook is not None:
                         self.hook.remove()
@@ -497,7 +500,7 @@ class MDEQNet(nn.Module):
                         grad_init_ = torch.zeros_like(grad)
                     else:
                         grad_init_ = grad_init
-                    result_bw = self.b_solver(lambda y: autograd.grad(new_z1, z1, y, retain_graph=True)[0] + grad, grad_init_,
+                    result_bw = self.b_solver(lambda y:  jac(y) + grad, grad_init_,
                                           threshold=b_thres, stop_mode=self.stop_mode, name="backward", eps=b_eps)
                     new_grad = result_bw.pop('result')
                     # save the new gradients per elements of the batch

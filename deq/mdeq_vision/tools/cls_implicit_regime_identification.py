@@ -246,9 +246,9 @@ def main():
                 image,
                 train_step=-1,
                 indices=indices,
-                f_thres=100,
+                f_thres=f_thres,
                 f_eps=1e-6,
-                b_thres=100,
+                b_thres=b_thres,
                 b_eps=1e-6,
             )
             loss = criterion(output, target)

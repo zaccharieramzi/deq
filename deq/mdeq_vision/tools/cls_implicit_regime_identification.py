@@ -221,7 +221,7 @@ def main():
         'grad_diff_norm',
         'image_index',
         'epoch',
-        'seed,'
+        'seed',
         'opts',
     ])
 
@@ -257,7 +257,7 @@ def main():
             gradients = {}
             for image_index in indices:
                 fname = warm_init_dir / f'{image_index}_back.pt'
-                gradients[image_index] = torch.load(fname)
+                gradients[image_index.item()] = torch.load(fname)
             return gradients
         # pot in kwargs we can have: f_thres, b_thres, lim_mem
         # first let's get the true gradients
@@ -274,8 +274,9 @@ def main():
             # now we compute the difference between the two gradients
             # and we store the results in a dataframe
             for image_index in indices:
-                grad_diff = torch.abs(true_gradients[image_index] - approx_grad[image_index]).sum().cpu().numpy().item()
-                grad_diff_norm = grad_diff / torch.abs(true_gradients[image_index]).sum().cpu().numpy().item()
+                i = image_index.item()
+                grad_diff = torch.abs(true_gradients[i] - approx_grad[i]).sum().cpu().numpy().item()
+                grad_diff_norm = grad_diff / torch.abs(true_gradients[i]).sum().cpu().numpy().item()
                 df_results.loc[len(df_results)] = [
                     b_thres,
                     f_thres,

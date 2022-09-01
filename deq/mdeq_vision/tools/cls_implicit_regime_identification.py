@@ -282,7 +282,7 @@ def main():
                     f_thres,
                     grad_diff,
                     grad_diff_norm,
-                    image_index,
+                    i,
                     last_epoch,
                     seed,
                     args.opts,

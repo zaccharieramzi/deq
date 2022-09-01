@@ -221,6 +221,7 @@ def main():
         'grad_diff_norm',
         'image_index',
         'epoch',
+        'seed,'
         'opts',
     ])
 
@@ -282,6 +283,7 @@ def main():
                     grad_diff_norm,
                     image_index,
                     last_epoch,
+                    seed,
                     args.opts,
                 ]
 

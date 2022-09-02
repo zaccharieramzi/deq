@@ -51,6 +51,7 @@ def test_cls_implicit_regime(config, clean_up_files):
     with patch("sys.argv", args + opts):
         implicit_regime_main()
 
+
 @pytest.mark.parametrize("config", [
     "TINY",
 ])

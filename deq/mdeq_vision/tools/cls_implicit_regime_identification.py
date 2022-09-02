@@ -30,9 +30,9 @@ from deq.mdeq_vision.lib.datasets.indexed_dataset import IndexedDataset
 from deq.mdeq_vision.lib.utils.utils import create_logger
 
 
-def set_modules_inactive(model, dropout=False):
+def set_modules_inactive(model, deactivate_dropout=False):
     inactive_types = [nn.BatchNorm2d, nn.GroupNorm]
-    if dropout:
+    if deactivate_dropout:
         inactive_types.append(VariationalHidDropout)
     inactive_types = tuple(inactive_types)
     for m in model.modules():
@@ -227,7 +227,7 @@ def main():
 
     # Evaluating convergence before training
     model.train()
-    set_modules_inactive(model, dropout=args.dropout_eval)
+    set_modules_inactive(model, deactivate_dropout=not args.dropout_eval)
 
     warm_init_dir = Path(config.TRAIN.WARM_INIT_DIR)
     n_batches_seen = 0

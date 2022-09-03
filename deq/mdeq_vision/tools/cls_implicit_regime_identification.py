@@ -233,7 +233,7 @@ def main():
     n_batches_seen = 0
 
     for batch in aug_train_loader:
-        if n_batches_seen > args.n_batches:
+        if n_batches_seen >= args.n_batches:
             break
         n_batches_seen += 1
         image, target, indices = batch

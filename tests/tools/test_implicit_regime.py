@@ -97,3 +97,4 @@ def test_cls_implicit_regime_sanity_check(config, clean_up_files):
     df_results = pd.read_csv("implicit_regime_identification.csv")
     diff_norm = df_results['grad_diff_norm']
     np.testing.assert_almost_equal(diff_norm, np.zeros(len(diff_norm)))
+    assert len(df_results) == 2

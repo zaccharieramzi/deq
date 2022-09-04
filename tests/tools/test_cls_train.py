@@ -59,6 +59,30 @@ def test_cls_train_head_only():
         main()
 
 
+def test_cls_train_power_method():
+    args = [
+        "main",
+        "--cfg",
+        "deq/mdeq_vision/experiments/cifar/cls_mdeq_TINY.yaml",
+        "--percent",
+        "0.0035",
+        "TRAIN.END_EPOCH",
+        "2",
+        "TRAIN.PRETRAIN_STEPS",
+        "1",
+        "DEQ.F_THRES",
+        "5",
+        "DEQ.B_THRES",
+        "5",
+        "MODEL.NUM_LAYERS",
+        "2",
+        "DEQ.F_SOLVER", "fixed_point_iteration",
+        "DEQ.B_SOLVER", "fixed_point_iteration",
+    ]
+    with patch("sys.argv", args):
+        main()
+
+
 def test_cls_train_save_res():
     filename = "results.csv"
     args = [

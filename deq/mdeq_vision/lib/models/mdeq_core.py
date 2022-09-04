@@ -19,7 +19,8 @@ import torch.nn.functional as F
 import torch.autograd as autograd
 
 from deq.lib.optimizations import VariationalHidDropout2d, weight_norm
-from deq.lib.solvers import anderson, broyden, power_method
+from deq.lib.solvers import anderson, broyden
+from deq.lib.solvers import power_method as fixed_point_iteration
 from deq.lib.jacobian import jac_loss_estimate, power_method
 from deq.lib.layer_utils import list2vec, vec2list, norm_diff, conv3x3, conv5x5
 from deq.mdeq_vision.lib.utils.utils import get_world_size, get_rank
@@ -539,8 +540,8 @@ class MDEQNet(nn.Module):
             if deq_mode:
                 new_inits = [
                     new_z1.detach().clone(),
-                    result_fw['Us'],
-                    result_fw['VTs'],
+                    result_fw.get('Us', None),
+                    result_fw.get('VTs', None),
                     torch.tensor(result_fw['nstep']).to(x).repeat(bsz),
                 ]
             else:

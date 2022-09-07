@@ -208,6 +208,81 @@ def broyden(f, x0, threshold, eps=1e-3, stop_mode="rel", ls=False, name="unknown
             "threshold": threshold}
 
 
+def backprop_broyden(f, x0, threshold, eps=1e-3, stop_mode="rel", ls=False, name="unknown"):
+    bsz, total_hsize, seq_len = x0.size()
+    g = lambda y: f(y) - y
+    dev = x0.device
+    alternative_mode = 'rel' if stop_mode == 'abs' else 'abs'
+
+    x_est = x0           # (bsz, 2d, L')
+    gx = g(x_est)        # (bsz, 2d, L')
+    nstep = 0
+    tnstep = 0
+
+    # For fast calculation of inv_jacobian (approximately)
+    nstep = 0
+    orig_nstep = 0
+    max_dim = threshold
+    Us = torch.zeros(bsz, total_hsize, seq_len, threshold).to(dev)     # One can also use an L-BFGS scheme to further reduce memory
+    VTs = torch.zeros(bsz, threshold, total_hsize, seq_len).to(dev)
+    update = -matvec(Us[:,:,:,:nstep].clone(), VTs[:,:nstep].clone(), gx)      # Formally should be -torch.matmul(inv_jacobian (-I), gx)
+    prot_break = False
+
+    # To be used in protective breaks
+    protect_thres = (1e6 if stop_mode == "abs" else 1e3) * seq_len
+    new_objective = 1e8
+
+    trace_dict = {'abs': [],
+                  'rel': []}
+    lowest_dict = {'abs': 1e8,
+                   'rel': 1e8}
+    lowest_step_dict = {'abs': 0,
+                        'rel': 0}
+    nstep, lowest_xest, lowest_gx = 0, x_est, gx
+
+    while nstep < threshold:
+        x_est, gx, delta_x, delta_gx, ite = line_search(update, x_est, gx, g, nstep=nstep, on=ls)
+        nstep += 1
+        tnstep += (ite+1)
+        abs_diff = torch.norm(gx).item()
+        rel_diff = abs_diff / (torch.norm(gx + x_est).item() + 1e-9)
+        diff_dict = {'abs': abs_diff,
+                     'rel': rel_diff}
+        trace_dict['abs'].append(abs_diff)
+        trace_dict['rel'].append(rel_diff)
+        for mode in ['rel', 'abs']:
+            if diff_dict[mode] < lowest_dict[mode]:
+                if mode == stop_mode:
+                    lowest_xest, lowest_gx = x_est.clone(), gx.clone()
+                lowest_dict[mode] = diff_dict[mode]
+                lowest_step_dict[mode] = nstep - orig_nstep
+
+        new_objective = diff_dict[stop_mode]
+        if new_objective < eps: break
+        if new_objective < 3*eps and nstep > (30 + orig_nstep) and np.max(trace_dict[stop_mode][-30:]) / np.min(trace_dict[stop_mode][-30:]) < 1.3:
+            # if there's hardly been any progress in the last 30 steps
+            break
+        if new_objective > trace_dict[stop_mode][0] * protect_thres:
+            prot_break = True
+            break
+
+        part_Us, part_VTs = Us[:,:,:,:nstep-1].clone(), VTs[:,:nstep-1].clone()
+        vT = rmatvec(part_Us, part_VTs, delta_x)
+        u = (delta_x - matvec(part_Us, part_VTs, delta_gx)) / torch.einsum('bij, bij -> b', vT, delta_gx)[:,None,None]
+        VTs[:, (nstep-1) % max_dim] = vT.clone()
+        Us[..., (nstep-1) % max_dim] = u.clone()
+        update = -matvec(Us[:,:,:,:nstep].clone(), VTs[:,:nstep].clone(), gx)
+
+    return {"result": lowest_xest,
+            "lowest": lowest_dict[stop_mode],
+            "nstep": lowest_step_dict[stop_mode],
+            "prot_break": prot_break,
+            "abs_trace": trace_dict['abs'],
+            "rel_trace": trace_dict['rel'],
+            "eps": eps,
+            "threshold": threshold}
+
+
 def anderson(f, x0, m=6, lam=1e-4, threshold=50, eps=1e-3, stop_mode='rel', beta=1.0, **kwargs):
     """ Anderson acceleration for fixed point iteration. """
     bsz, d, L = x0.shape

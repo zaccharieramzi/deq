@@ -49,7 +49,7 @@ def test_can_backprop_broyden():
         ls=False,
     )
     new_z1 = result_fw.pop('result')
-    new_z1.backward(torch.ones_like(new_z1))
+    new_z1.backward(torch.randn_like(new_z1))
     assert z1.grad is not None
 
 

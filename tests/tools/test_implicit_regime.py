@@ -1,3 +1,5 @@
+import os
+
 import pandas as pd
 import numpy as np
 import pytest
@@ -55,6 +57,10 @@ def test_cls_implicit_regime(config, clean_up_files):
 @pytest.mark.parametrize("config", [
     "TINY",
 ])
+@pytest.mark.skipif(
+    os.environ.get('CI', False) == 'true',
+    reason='The full warm init test is too long for CI',
+)
 def test_cls_implicit_regime_sanity_check(config, clean_up_files):
     args = [
         "main",
@@ -96,5 +102,7 @@ def test_cls_implicit_regime_sanity_check(config, clean_up_files):
 
     df_results = pd.read_csv("implicit_regime_identification.csv")
     diff_norm = df_results['grad_diff_norm']
+    unrolled_diff_norm = df_results['unrolled_grad_diff_norm']
     np.testing.assert_almost_equal(diff_norm, np.zeros(len(diff_norm)))
+    np.testing.assert_almost_equal(unrolled_diff_norm, np.zeros(len(unrolled_diff_norm)))
     assert len(df_results) == 2

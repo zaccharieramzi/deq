@@ -19,7 +19,7 @@ import torch.nn.functional as F
 import torch.autograd as autograd
 
 from deq.lib.optimizations import VariationalHidDropout2d, weight_norm
-from deq.lib.solvers import anderson, broyden
+from deq.lib.solvers import anderson, broyden, backprop_broyden
 from deq.lib.solvers import power_method as fixed_point_iteration
 from deq.lib.jacobian import jac_loss_estimate, power_method
 from deq.lib.layer_utils import list2vec, vec2list, norm_diff, conv3x3, conv5x5
@@ -420,6 +420,7 @@ class MDEQNet(nn.Module):
         return_inits = kwargs.get('return_inits', False)
         return_result = kwargs.get('return_result', False)
         data_aug_invariance = kwargs.get('data_aug_invariance', False)
+        unrolled_broyden = kwargs.get('unrolled_broyden', False)
         if data_aug_invariance:
             # in this case x shape is
             # (batch_size, n_aug, channels, height, width)
@@ -464,6 +465,33 @@ class MDEQNet(nn.Module):
                     z2 = z1.clone().detach().requires_grad_()
                     new_z2 = func(z2)
                     jac_loss = jac_loss_estimate(new_z2, z2)
+        elif unrolled_broyden:
+            result_fw = backprop_broyden(
+                func,
+                z1,
+                threshold=f_thres,
+                stop_mode=self.stop_mode,
+                name="forward",
+                eps=1e-6,
+            )
+            z1 = result_fw.pop('result')
+            new_z1 = z1
+
+            def backward_hook(grad):
+                if self.hook is not None:
+                    self.hook.remove()
+                    if torch.cuda.is_available():
+                        torch.cuda.synchronize()
+                if self.warm_init_dir is not None and indices is not None:
+                    for i_batch, idx in enumerate(indices):
+                        g = grad[i_batch].cpu()
+                        fname = f'{idx.cpu().numpy().item()}_back.pt'
+                        torch.save(
+                            g,
+                            self.warm_init_dir / fname,
+                        )
+                return grad
+            self.hook = new_z1.register_hook(backward_hook)
         else:
             with torch.no_grad():
                 result_fw = self.f_solver(

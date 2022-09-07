@@ -217,8 +217,10 @@ def main():
     df_results = pd.DataFrame(columns=[
         'b_thres',
         'f_thres',
-        'grad_diff',
-        'grad_diff_norm',
+        'true_grad_diff',
+        'true_grad_diff_norm',
+        'unrolled_grad_diff',
+        'unrolled_grad_diff_norm',
         'image_index',
         'epoch',
         'seed',
@@ -259,6 +261,24 @@ def main():
                 fname = warm_init_dir / f'{image_index}_back.pt'
                 gradients[image_index.item()] = torch.load(fname)
             return gradients
+
+        def get_broyden_unrolled_grad(model, f_thres):
+            output, *_ = model(
+                image,
+                train_step=-1,
+                indices=indices,
+                f_thres=f_thres,
+                f_eps=1e-6,
+                unrolled_broyden=True,
+            )
+            loss = criterion(output, target)
+            loss.backward()
+            model.zero_grad()
+            gradients = {}
+            for image_index in indices:
+                fname = warm_init_dir / f'{image_index}_back.pt'
+                gradients[image_index.item()] = torch.load(fname)
+            return gradients
         # pot in kwargs we can have: f_thres, b_thres, lim_mem
         # first let's get the true gradients
         # with a lot of iterations
@@ -271,17 +291,22 @@ def main():
         b_thres_range = range(*args.b_thres_range)
         for f_thres, b_thres in itertools.product(f_thres_range, b_thres_range):
             approx_grad = get_grad(model, f_thres, b_thres)
+            unrolled_broyden_grad = get_broyden_unrolled_grad(model, f_thres)
             # now we compute the difference between the two gradients
             # and we store the results in a dataframe
             for image_index in indices:
                 i = image_index.item()
                 grad_diff = torch.abs(true_gradients[i] - approx_grad[i]).sum().cpu().numpy().item()
                 grad_diff_norm = grad_diff / torch.abs(true_gradients[i]).sum().cpu().numpy().item()
+                unrolled_grad_diff = torch.abs(true_gradients[i] - unrolled_broyden_grad[i]).sum().cpu().numpy().item()
+                unrolled_grad_diff_norm = unrolled_grad_diff / torch.abs(true_gradients[i]).sum().cpu().numpy().item()
                 df_results.loc[len(df_results)] = [
                     b_thres,
                     f_thres,
                     grad_diff,
                     grad_diff_norm,
+                    unrolled_grad_diff,
+                    unrolled_grad_diff_norm,
                     i,
                     last_epoch,
                     seed,

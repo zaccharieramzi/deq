@@ -342,7 +342,7 @@ def power_method(f, x0, threshold, eps=1e-3, stop_mode="rel", ls=False, name="un
     nstep, lowest_xest, lowest_gx = 0, x_est, gx
 
     while nstep < threshold:
-        x_est, gx, delta_x, delta_gx, ite = line_search(-gx, x_est, gx, g, nstep=nstep, on=ls, step_size=step_size)
+        x_est, gx, delta_x, delta_gx, ite = line_search(gx, x_est, gx, g, nstep=nstep, on=ls, step_size=step_size)
         nstep += 1
         tnstep += (ite+1)
         abs_diff = torch.norm(gx).item()

@@ -474,24 +474,7 @@ class MDEQNet(nn.Module):
                 name="forward",
                 eps=1e-6,
             )
-            z1 = result_fw.pop('result')
-            new_z1 = z1
-
-            def backward_hook(grad):
-                if self.hook is not None:
-                    self.hook.remove()
-                    if torch.cuda.is_available():
-                        torch.cuda.synchronize()
-                if self.warm_init_dir is not None and indices is not None:
-                    for i_batch, idx in enumerate(indices):
-                        g = grad[i_batch].cpu()
-                        fname = f'{idx.cpu().numpy().item()}_back.pt'
-                        torch.save(
-                            g,
-                            self.warm_init_dir / fname,
-                        )
-                return grad
-            self.hook = new_z1.register_hook(backward_hook)
+            new_z1 = result_fw.pop('result')
         else:
             with torch.no_grad():
                 result_fw = self.f_solver(

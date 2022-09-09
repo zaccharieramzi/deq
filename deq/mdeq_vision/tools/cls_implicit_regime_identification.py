@@ -102,6 +102,14 @@ def parse_args():
     return args
 
 
+def get_model_params_grad(model):
+    params_grad = []
+    for name, param in model.named_parameters():
+        if param.requires_grad:
+            params_grad.append(param.grad.view(-1))
+    return params_grad
+
+
 def main():
     """
     Set the --percent to make the duration of training vary.
@@ -221,7 +229,6 @@ def main():
         'true_grad_diff_norm',
         'unrolled_grad_diff',
         'unrolled_grad_diff_norm',
-        'image_index',
         'epoch',
         'seed',
         'opts',
@@ -231,7 +238,6 @@ def main():
     model.train()
     set_modules_inactive(model, deactivate_dropout=not args.dropout_eval)
 
-    warm_init_dir = Path(config.TRAIN.WARM_INIT_DIR)
     n_batches_seen = 0
 
     for batch in aug_train_loader:
@@ -243,7 +249,7 @@ def main():
             image = image.cuda()
             target = target.cuda(non_blocking=True)
 
-        def get_grad(model, f_thres, b_thres):
+        def get_ift_grad(model, f_thres, b_thres):
             output, *_ = model(
                 image,
                 train_step=-1,
@@ -255,12 +261,11 @@ def main():
             )
             loss = criterion(output, target)
             loss.backward()
+            # get the gradients of the model parameters
+            grad = get_model_params_grad(model)
+            grad = torch.cat([g.flatten() for g in grad])
             model.zero_grad()
-            gradients = {}
-            for image_index in indices:
-                fname = warm_init_dir / f'{image_index}_back.pt'
-                gradients[image_index.item()] = torch.load(fname)
-            return gradients
+            return grad
 
         def get_broyden_unrolled_grad(model, f_thres):
             output, *_ = model(
@@ -273,16 +278,14 @@ def main():
             )
             loss = criterion(output, target)
             loss.backward()
+            grad = get_model_params_grad(model)
+            grad = torch.cat([g.flatten() for g in grad])
             model.zero_grad()
-            gradients = {}
-            for image_index in indices:
-                fname = warm_init_dir / f'{image_index}_back.pt'
-                gradients[image_index.item()] = torch.load(fname)
-            return gradients
+            return grad
         # pot in kwargs we can have: f_thres, b_thres, lim_mem
         # first let's get the true gradients
         # with a lot of iterations
-        true_gradients = get_grad(model, 100, 100)
+        true_gradients = get_ift_grad(model, 100, 100)
         # we now look at the approximate gradient
         # with a reduced number of iterations
         # we loop over the cartesian product
@@ -290,28 +293,25 @@ def main():
         f_thres_range = range(*args.f_thres_range)
         b_thres_range = range(*args.b_thres_range)
         for f_thres, b_thres in itertools.product(f_thres_range, b_thres_range):
-            approx_grad = get_grad(model, f_thres, b_thres)
+            approx_grad = get_ift_grad(model, f_thres, b_thres)
             unrolled_broyden_grad = get_broyden_unrolled_grad(model, f_thres)
             # now we compute the difference between the two gradients
             # and we store the results in a dataframe
-            for image_index in indices:
-                i = image_index.item()
-                grad_diff = torch.abs(true_gradients[i] - approx_grad[i]).sum().cpu().numpy().item()
-                grad_diff_norm = grad_diff / torch.abs(true_gradients[i]).sum().cpu().numpy().item()
-                unrolled_grad_diff = torch.abs(true_gradients[i] - unrolled_broyden_grad[i]).sum().cpu().numpy().item()
-                unrolled_grad_diff_norm = unrolled_grad_diff / torch.abs(true_gradients[i]).sum().cpu().numpy().item()
-                df_results.loc[len(df_results)] = [
-                    b_thres,
-                    f_thres,
-                    grad_diff,
-                    grad_diff_norm,
-                    unrolled_grad_diff,
-                    unrolled_grad_diff_norm,
-                    i,
-                    last_epoch,
-                    seed,
-                    args.opts,
-                ]
+            grad_diff = torch.abs(true_gradients - approx_grad).sum().cpu().numpy().item()
+            grad_diff_norm = grad_diff / torch.abs(true_gradients).sum().cpu().numpy().item()
+            unrolled_grad_diff = torch.abs(true_gradients - unrolled_broyden_grad).sum().cpu().numpy().item()
+            unrolled_grad_diff_norm = unrolled_grad_diff / torch.abs(true_gradients).sum().cpu().numpy().item()
+            df_results.loc[len(df_results)] = [
+                b_thres,
+                f_thres,
+                grad_diff,
+                grad_diff_norm,
+                unrolled_grad_diff,
+                unrolled_grad_diff_norm,
+                last_epoch,
+                seed,
+                args.opts,
+            ]
 
     results_path = Path('implicit_regime_identification.csv')
     if results_path.exists():

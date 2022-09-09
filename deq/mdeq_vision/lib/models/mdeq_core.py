@@ -474,7 +474,7 @@ class MDEQNet(nn.Module):
                 name="forward",
                 eps=1e-6,
             )
-            new_z1 = result_fw.pop('result')
+            new_z1 = func(result_fw.pop('result'))
         else:
             with torch.no_grad():
                 result_fw = self.f_solver(

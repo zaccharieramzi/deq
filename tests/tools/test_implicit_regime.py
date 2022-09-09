@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 
 import pandas as pd
 import numpy as np
@@ -83,17 +84,28 @@ def test_cls_implicit_regime_sanity_check(config, clean_up_files):
         "MODEL.NUM_LAYERS",
         "2",
     ]
-    with patch("sys.argv", args + opts):
-        main()
+
+    model_directory = Path("output/cifar10/cls_mdeq_TINY")
+    trained_model_file = model_directory / "checkpoint_14.pth.tar"
+    if trained_model_file.exists():
+        model_file = trained_model_file
+        epoch = 14
+    else:
+        model_file = model_directory / "checkpoint_1.pth.tar"
+        epoch = 1
+        with patch("sys.argv", args + opts):
+            main()
 
     args[1] = "--n_batches"
+    n_iter = 50
     args.extend([
-        "--b_thres_range", "100", "101", "1",
-        "--f_thres_range", "100", "101", "1",
+        "--b_thres_range", str(n_iter), str(n_iter+1), "1",
+        "--f_thres_range", str(n_iter), str(n_iter+1), "1",
     ])
+
     opts += [
-        "TEST.MODEL_FILE", "output/cifar10/cls_mdeq_TINY/checkpoint_1.pth.tar",
-        "TRAIN.BEGIN_EPOCH", "1",
+        "TEST.MODEL_FILE", str(model_file),
+        "TRAIN.BEGIN_EPOCH", str(epoch),
         "TRAIN.WARM_INIT_DIR", "./",
         "TRAIN.BATCH_SIZE_PER_GPU", "1",
     ]
@@ -102,9 +114,12 @@ def test_cls_implicit_regime_sanity_check(config, clean_up_files):
 
     df_results = pd.read_csv("implicit_regime_identification.csv")
     diff_norm = df_results['true_grad_diff_norm']
-    np.testing.assert_almost_equal(diff_norm, np.zeros(len(diff_norm)))
-    # we cannot test for the consistency between unrolled and ift in this scenario
+    np.testing.assert_allclose(diff_norm, np.zeros(len(diff_norm)), atol=2)
+    # we cannot test for the consistency between unrolled and ift without a
+    # trained model
     # because the fixed point iterations are not stable
-    # unrolled_diff_norm = df_results['unrolled_grad_diff_norm']
-    # np.testing.assert_almost_equal(unrolled_diff_norm, np.zeros(len(unrolled_diff_norm)))
+    if trained_model_file.exists():
+        # load the model weights
+        unrolled_diff_norm = df_results['unrolled_grad_diff_norm']
+        np.testing.assert_allclose(unrolled_diff_norm, np.zeros(len(unrolled_diff_norm)), atol=2)
     assert len(df_results) == 1

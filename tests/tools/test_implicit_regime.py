@@ -95,14 +95,16 @@ def test_cls_implicit_regime_sanity_check(config, clean_up_files):
         "TEST.MODEL_FILE", "output/cifar10/cls_mdeq_TINY/checkpoint_1.pth.tar",
         "TRAIN.BEGIN_EPOCH", "1",
         "TRAIN.WARM_INIT_DIR", "./",
-        "TRAIN.BATCH_SIZE_PER_GPU", "2",
+        "TRAIN.BATCH_SIZE_PER_GPU", "1",
     ]
     with patch("sys.argv", args + opts):
         implicit_regime_main()
 
     df_results = pd.read_csv("implicit_regime_identification.csv")
-    diff_norm = df_results['grad_diff_norm']
-    unrolled_diff_norm = df_results['unrolled_grad_diff_norm']
+    diff_norm = df_results['true_grad_diff_norm']
     np.testing.assert_almost_equal(diff_norm, np.zeros(len(diff_norm)))
-    np.testing.assert_almost_equal(unrolled_diff_norm, np.zeros(len(unrolled_diff_norm)))
-    assert len(df_results) == 2
+    # we cannot test for the consistency between unrolled and ift in this scenario
+    # because the fixed point iterations are not stable
+    # unrolled_diff_norm = df_results['unrolled_grad_diff_norm']
+    # np.testing.assert_almost_equal(unrolled_diff_norm, np.zeros(len(unrolled_diff_norm)))
+    assert len(df_results) == 1

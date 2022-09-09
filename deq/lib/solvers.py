@@ -223,9 +223,10 @@ def backprop_broyden(f, x0, threshold, eps=1e-3, stop_mode="rel", ls=False, name
     nstep = 0
     orig_nstep = 0
     max_dim = threshold
-    Us = torch.zeros(bsz, total_hsize, seq_len, threshold).to(dev)     # One can also use an L-BFGS scheme to further reduce memory
-    VTs = torch.zeros(bsz, threshold, total_hsize, seq_len).to(dev)
-    update = -matvec(Us[:,:,:,:nstep].clone(), VTs[:,:nstep].clone(), gx)      # Formally should be -torch.matmul(inv_jacobian (-I), gx)
+    # Us = torch.zeros(bsz, total_hsize, seq_len, threshold).to(dev)     # One can also use an L-BFGS scheme to further reduce memory
+    # VTs = torch.zeros(bsz, threshold, total_hsize, seq_len).to(dev)
+    Us = VTs = None
+    update = gx     # Formally should be -torch.matmul(inv_jacobian (-I), gx)
     prot_break = False
 
     # To be used in protective breaks
@@ -245,7 +246,7 @@ def backprop_broyden(f, x0, threshold, eps=1e-3, stop_mode="rel", ls=False, name
         nstep += 1
         tnstep += (ite+1)
         abs_diff = torch.norm(gx).item()
-        rel_diff = abs_diff / (torch.norm(gx + x_est).item() + 1e-9)
+        rel_diff = abs_diff / (torch.norm(gx + x_est).item() + 1e-7)
         diff_dict = {'abs': abs_diff,
                      'rel': rel_diff}
         trace_dict['abs'].append(abs_diff)
@@ -266,12 +267,22 @@ def backprop_broyden(f, x0, threshold, eps=1e-3, stop_mode="rel", ls=False, name
             prot_break = True
             break
 
-        part_Us, part_VTs = Us[:,:,:,:nstep-1].clone(), VTs[:,:nstep-1].clone()
-        vT = rmatvec(part_Us, part_VTs, delta_x)
-        u = (delta_x - matvec(part_Us, part_VTs, delta_gx)) / torch.einsum('bij, bij -> b', vT, delta_gx)[:,None,None]
-        VTs[:, (nstep-1) % max_dim] = vT.clone()
-        Us[..., (nstep-1) % max_dim] = u.clone()
-        update = -matvec(Us[:,:,:,:nstep].clone(), VTs[:,:nstep].clone(), gx)
+        if Us is None:
+            vT = - delta_x
+            intermediary_u = - delta_gx
+        else:
+            vT = rmatvec(Us, VTs, delta_x)
+            intermediary_u = matvec(Us, VTs, delta_gx)
+        u = (delta_x - intermediary_u) / (torch.einsum('bij, bij -> b', vT, delta_gx)[:,None,None] + 1e-7)
+        if Us is None:
+            Us = u[..., None]
+            VTs = vT[:, None]
+        else:
+            # stack u to Us along the last dimension
+            Us = torch.cat([Us, u[..., None]], dim=-1)
+            # stack vT to VTs along the second dimension
+            VTs = torch.cat([VTs, vT[:, None]], dim=1)
+        update = -matvec(Us, VTs, gx)
 
     return {"result": lowest_xest,
             "lowest": lowest_dict[stop_mode],

@@ -232,7 +232,9 @@ def main():
         'unrolled_fixed_point_iteration_grad_diff',
         'unrolled_fixed_point_iteration_grad_diff_norm',
         'diff_ift_unrolled_fixed_point',
+        'diff_ift_unrolled_fixed_point_norm',
         'diff_ift_unrolled_broyden',
+        'diff_ift_unrolled_broyden_norm',
         'epoch',
         'seed',
         'opts',
@@ -322,7 +324,9 @@ def main():
             unrolled_fixed_point_grad_diff = torch.abs(true_gradients - unrolled_fixed_point_grad).sum().cpu().numpy().item()
             unrolled_fixed_point_grad_diff_norm = unrolled_fixed_point_grad_diff / torch.abs(true_gradients).sum().cpu().numpy().item()
             diff_ift_unrolled_fixed_point = torch.abs(approx_grad - unrolled_fixed_point_grad).sum().cpu().numpy().item()
+            diff_ift_unrolled_fixed_point_norm = diff_ift_unrolled_fixed_point / torch.abs(approx_grad).sum().cpu().numpy().item()
             diff_ift_unrolled_broyden = torch.abs(approx_grad - unrolled_broyden_grad).sum().cpu().numpy().item()
+            diff_ift_unrolled_broyden_norm = diff_ift_unrolled_broyden / torch.abs(approx_grad).sum().cpu().numpy().item()
             df_results.loc[len(df_results)] = [
                 b_thres,
                 f_thres,
@@ -333,7 +337,9 @@ def main():
                 unrolled_fixed_point_grad_diff,
                 unrolled_fixed_point_grad_diff_norm,
                 diff_ift_unrolled_fixed_point,
+                diff_ift_unrolled_fixed_point_norm,
                 diff_ift_unrolled_broyden,
+                diff_ift_unrolled_broyden_norm,
                 last_epoch,
                 seed,
                 args.opts,

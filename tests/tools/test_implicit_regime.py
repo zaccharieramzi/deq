@@ -120,6 +120,8 @@ def test_cls_implicit_regime_sanity_check(config, clean_up_files):
     # because the fixed point iterations are not stable
     if trained_model_file.exists():
         # load the model weights
-        unrolled_diff_norm = df_results['unrolled_grad_diff_norm']
-        np.testing.assert_allclose(unrolled_diff_norm, np.zeros(len(unrolled_diff_norm)), atol=2)
+        broyden_diff_norm = df_results['unrolled_broyden_grad_diff_norm']
+        np.testing.assert_allclose(broyden_diff_norm, np.zeros(len(broyden_diff_norm)), atol=2)
+        fixed_point_diff_norm = df_results['unrolled_fixed_point_iteration_grad_diff_norm']
+        np.testing.assert_allclose(fixed_point_diff_norm, np.zeros(len(fixed_point_diff_norm)), atol=2)
     assert len(df_results) == 1

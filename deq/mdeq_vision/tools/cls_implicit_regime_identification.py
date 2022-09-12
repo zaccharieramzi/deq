@@ -227,8 +227,12 @@ def main():
         'f_thres',
         'true_grad_diff',
         'true_grad_diff_norm',
-        'unrolled_grad_diff',
-        'unrolled_grad_diff_norm',
+        'unrolled_broyden_grad_diff',
+        'unrolled_broyden_grad_diff_norm',
+        'unrolled_fixed_point_iteration_grad_diff',
+        'unrolled_fixed_point_iteration_grad_diff_norm',
+        'diff_ift_unrolled_fixed_point',
+        'diff_ift_unrolled_broyden',
         'epoch',
         'seed',
         'opts',
@@ -282,6 +286,19 @@ def main():
             grad = torch.cat([g.flatten() for g in grad])
             model.zero_grad()
             return grad
+
+        def get_unrolled_fixed_point_iteration_grad(model, f_thres):
+            model.num_layers = f_thres
+            output, *_ = model(
+                image,
+                train_step=0,
+            )
+            loss = criterion(output, target)
+            loss.backward()
+            grad = get_model_params_grad(model)
+            grad = torch.cat([g.flatten() for g in grad])
+            model.zero_grad()
+            return grad
         # pot in kwargs we can have: f_thres, b_thres, lim_mem
         # first let's get the true gradients
         # with a lot of iterations
@@ -295,19 +312,28 @@ def main():
         for f_thres, b_thres in itertools.product(f_thres_range, b_thres_range):
             approx_grad = get_ift_grad(model, f_thres, b_thres)
             unrolled_broyden_grad = get_broyden_unrolled_grad(model, f_thres)
+            unrolled_fixed_point_grad = get_unrolled_fixed_point_iteration_grad(model, f_thres)
             # now we compute the difference between the two gradients
             # and we store the results in a dataframe
             grad_diff = torch.abs(true_gradients - approx_grad).sum().cpu().numpy().item()
             grad_diff_norm = grad_diff / torch.abs(true_gradients).sum().cpu().numpy().item()
-            unrolled_grad_diff = torch.abs(true_gradients - unrolled_broyden_grad).sum().cpu().numpy().item()
-            unrolled_grad_diff_norm = unrolled_grad_diff / torch.abs(true_gradients).sum().cpu().numpy().item()
+            unrolled_broyden_grad_diff = torch.abs(true_gradients - unrolled_broyden_grad).sum().cpu().numpy().item()
+            unrolled_broyden_grad_diff_norm = unrolled_broyden_grad_diff / torch.abs(true_gradients).sum().cpu().numpy().item()
+            unrolled_fixed_point_grad_diff = torch.abs(true_gradients - unrolled_fixed_point_grad).sum().cpu().numpy().item()
+            unrolled_fixed_point_grad_diff_norm = unrolled_fixed_point_grad_diff / torch.abs(true_gradients).sum().cpu().numpy().item()
+            diff_ift_unrolled_fixed_point = torch.abs(approx_grad - unrolled_fixed_point_grad).sum().cpu().numpy().item()
+            diff_ift_unrolled_broyden = torch.abs(approx_grad - unrolled_broyden_grad).sum().cpu().numpy().item()
             df_results.loc[len(df_results)] = [
                 b_thres,
                 f_thres,
                 grad_diff,
                 grad_diff_norm,
-                unrolled_grad_diff,
-                unrolled_grad_diff_norm,
+                unrolled_broyden_grad_diff,
+                unrolled_broyden_grad_diff_norm,
+                unrolled_fixed_point_grad_diff,
+                unrolled_fixed_point_grad_diff_norm,
+                diff_ift_unrolled_fixed_point,
+                diff_ift_unrolled_broyden,
                 last_epoch,
                 seed,
                 args.opts,

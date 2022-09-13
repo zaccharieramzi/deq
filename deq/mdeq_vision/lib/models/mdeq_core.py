@@ -506,7 +506,6 @@ class MDEQNet(nn.Module):
                     name="forward",
                     init_tensors=init_tensors,
                     eps=f_eps,
-                    ls=f_ls,
                     **self.f_solver_kwargs,
                 )
                 z1 = result_fw.pop('result')

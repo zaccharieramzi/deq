@@ -371,6 +371,18 @@ class MDEQNet(nn.Module):
         self.b_solver = eval(cfg['DEQ']['B_SOLVER'])
         if self.b_solver is None:
             self.b_solver = self.f_solver
+        self.f_step_size = cfg['DEQ']['F_STEP_SIZE']
+        self.b_step_size = cfg['DEQ']['B_STEP_SIZE']
+        if self.b_step_size is None:
+            self.b_step_size = self.f_step_size
+        if cfg['DEQ']['F_SOLVER'] == 'fixed_point_iteration':
+            self.f_solver_kwargs = {'step_size': self.f_step_size}
+        else:
+            self.f_solver_kwargs = {}
+        if cfg['DEQ']['B_SOLVER'] == 'fixed_point_iteration':
+            self.b_solver_kwargs = {'step_size': self.b_step_size}
+        else:
+            self.b_solver_kwargs = {}
         self.f_thres = cfg['DEQ']['F_THRES']
         self.b_thres = cfg['DEQ']['B_THRES']
         self.stop_mode = cfg['DEQ']['STOP_MODE']
@@ -486,6 +498,7 @@ class MDEQNet(nn.Module):
                     init_tensors=init_tensors,
                     eps=f_eps,
                     ls=f_ls,
+                    **self.f_solver_kwargs,
                 )
                 z1 = result_fw.pop('result')
             new_z1 = z1
@@ -512,8 +525,11 @@ class MDEQNet(nn.Module):
                         grad_init_ = torch.zeros_like(grad)
                     else:
                         grad_init_ = grad_init
-                    result_bw = self.b_solver(functools.partial(jac, grad=grad), grad_init_,
-                                          threshold=b_thres, stop_mode=self.stop_mode, name="backward", eps=b_eps)
+                    result_bw = self.b_solver(
+                        functools.partial(jac, grad=grad), grad_init_,
+                        threshold=b_thres, stop_mode=self.stop_mode, name="backward", eps=b_eps,
+                        **self.b_solver_kwargs,
+                    )
                     new_grad = result_bw.pop('result')
                     # save the new gradients per elements of the batch
                     # according to their indices

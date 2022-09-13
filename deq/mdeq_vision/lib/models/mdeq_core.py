@@ -471,7 +471,11 @@ class MDEQNet(nn.Module):
         # Multiscale Deep Equilibrium!
         if not deq_mode:
             for layer_ind in range(self.num_layers):
-                z1 = func(z1)
+                if self.f_solver_kwargs:
+                    step_size = self.f_solver_kwargs['step_size']
+                else:
+                    step_size = 1.0
+                z1 = z1 + step_size * (func(z1) - z1)
             new_z1 = z1
 
             if self.training:

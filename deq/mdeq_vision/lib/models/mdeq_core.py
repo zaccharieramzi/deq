@@ -371,16 +371,18 @@ class MDEQNet(nn.Module):
         self.b_solver = eval(cfg['DEQ']['B_SOLVER'])
         if self.b_solver is None:
             self.b_solver = self.f_solver
-        self.f_step_size = cfg['DEQ']['F_STEP_SIZE']
-        self.b_step_size = cfg['DEQ']['B_STEP_SIZE']
-        if self.b_step_size is None:
-            self.b_step_size = self.f_step_size
         if cfg['DEQ']['F_SOLVER'] == 'fixed_point_iteration':
-            self.f_solver_kwargs = {'step_size': self.f_step_size}
+            self.f_solver_kwargs = {
+                'step_size': cfg['DEQ']['F_STEP_SIZE'],
+                'ls': cfg['DEQ']['F_LS'],
+            }
         else:
             self.f_solver_kwargs = {}
         if cfg['DEQ']['B_SOLVER'] == 'fixed_point_iteration':
-            self.b_solver_kwargs = {'step_size': self.b_step_size}
+            self.b_solver_kwargs = {
+                'step_size': cfg['DEQ']['B_STEP_SIZE'],
+                'ls': cfg['DEQ']['B_LS'],
+            }
         else:
             self.b_solver_kwargs = {}
         self.f_thres = cfg['DEQ']['F_THRES']

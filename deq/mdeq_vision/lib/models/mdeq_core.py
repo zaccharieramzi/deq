@@ -423,7 +423,7 @@ class MDEQNet(nn.Module):
         num_branches = self.num_branches
         f_thres = kwargs.get('f_thres', self.f_thres)
         f_eps = kwargs.get('f_eps', self.f_eps)
-        f_ls = kwargs.get('f_ls', False)
+        f_ls = kwargs.get('f_ls', None)
         b_thres = kwargs.get('b_thres', self.b_thres)
         b_eps = kwargs.get('b_eps', self.b_eps)
         z_list = kwargs.get('z_list', None)
@@ -495,6 +495,9 @@ class MDEQNet(nn.Module):
             new_z1 = func(result_fw.pop('result'))
         else:
             with torch.no_grad():
+                f_solver_kwargs = self.f_solver_kwargs
+                if f_ls is not None:
+                    f_solver_kwargs.update(ls=f_ls)
                 result_fw = self.f_solver(
                     func,
                     z1,

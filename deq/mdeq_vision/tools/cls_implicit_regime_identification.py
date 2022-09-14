@@ -290,7 +290,10 @@ def main():
             return grad
 
         def get_unrolled_fixed_point_iteration_grad(model, f_thres):
-            model.num_layers = f_thres
+            if torch.cuda.is_available():
+                model.module.num_layers = f_thres
+            else:
+                model.num_layers = f_thres
             output, *_ = model(
                 image,
                 train_step=0,

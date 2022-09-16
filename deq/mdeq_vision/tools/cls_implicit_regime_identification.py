@@ -91,6 +91,10 @@ def parse_args():
                         help='random seed',
                         type=int,
                         default=None)
+    parser.add_argument('--results_name',
+                        help='results file name',
+                        type=str,
+                        default='implicit_regime_identification.csv')
     parser.add_argument('opts',
                         help="Modify config options using the command-line",
                         default=None,
@@ -348,7 +352,7 @@ def main():
                 args.opts,
             ]
 
-    results_path = Path('implicit_regime_identification.csv')
+    results_path = Path(args.results_name)
     if results_path.exists():
         df_results.to_csv(results_path, mode='a', header=False)
     else:

@@ -239,6 +239,11 @@ def main():
         'diff_ift_unrolled_fixed_point_norm',
         'diff_ift_unrolled_broyden',
         'diff_ift_unrolled_broyden_norm',
+        'true_grad_cosine_sim',
+        'unrolled_broyden_grad_cosine_sim',
+        'unrolled_fixed_point_grad_cosine_sim',
+        'ift_unrolled_fixed_point_cosine_sim',
+        'ift_unrolled_broyden_cosine_sim',
         'epoch',
         'seed',
         'opts',
@@ -334,6 +339,11 @@ def main():
             diff_ift_unrolled_fixed_point_norm = diff_ift_unrolled_fixed_point / torch.abs(approx_grad).sum().cpu().numpy().item()
             diff_ift_unrolled_broyden = torch.abs(approx_grad - unrolled_broyden_grad).sum().cpu().numpy().item()
             diff_ift_unrolled_broyden_norm = diff_ift_unrolled_broyden / torch.abs(approx_grad).sum().cpu().numpy().item()
+            grad_cosine_sim = nn.functional.cosine_similarity(true_gradients, approx_grad).cpu().numpy().item()
+            unrolled_broyden_grad_cosine_sim = nn.functional.cosine_similarity(true_gradients, unrolled_broyden_grad).cpu().numpy().item()
+            unrolled_fixed_point_grad_cosine_sim = nn.functional.cosine_similarity(true_gradients, unrolled_fixed_point_grad).cpu().numpy().item()
+            ift_unrolled_fixed_point_cosine_sim = nn.functional.cosine_similarity(approx_grad, unrolled_fixed_point_grad).cpu().numpy().item()
+            ift_unrolled_broyden_cosine_sim = nn.functional.cosine_similarity(approx_grad, unrolled_broyden_grad).cpu().numpy().item()
             df_results.loc[len(df_results)] = [
                 b_thres,
                 f_thres,
@@ -347,6 +357,11 @@ def main():
                 diff_ift_unrolled_fixed_point_norm,
                 diff_ift_unrolled_broyden,
                 diff_ift_unrolled_broyden_norm,
+                grad_cosine_sim,
+                unrolled_broyden_grad_cosine_sim,
+                unrolled_fixed_point_grad_cosine_sim,
+                ift_unrolled_fixed_point_cosine_sim,
+                ift_unrolled_broyden_cosine_sim,
                 last_epoch,
                 seed,
                 args.opts,

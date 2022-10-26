@@ -69,6 +69,9 @@ def parse_args():
     parser.add_argument('--valid_on_train',
                         help='validate on training data',
                         action='store_true')
+    parser.add_argument('--use_loss_as_perf',
+                        help='Use loss as perf',
+                        action='store_true')
     parser.add_argument('--use_warm_init',
                         help='use warm inits when validating on train data',
                         action='store_true')
@@ -201,7 +204,7 @@ def main():
     # evaluate on validation set
     perf_indicator = validate(config, valid_loader, model, criterion, None, epoch=-1, output_dir=final_output_dir,
              tb_log_dir=tb_log_dir, writer_dict=None, topk=topk, spectral_radius_mode=config.DEQ.SPECTRAL_RADIUS_MODE,
-             warm_inits=warm_inits)
+             warm_inits=warm_inits, return_loss=args.use_loss_as_perf)
 
     if args.results_name is not None:
         write_header = not Path(args.results_name).is_file()

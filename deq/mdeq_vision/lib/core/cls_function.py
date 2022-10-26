@@ -216,7 +216,7 @@ def train(config, train_loader, model, criterion, optimizer, lr_scheduler, epoch
 
 
 def validate(config, val_loader, model, criterion, lr_scheduler, epoch, output_dir, tb_log_dir,
-             writer_dict=None, topk=(1,5), spectral_radius_mode=False, warm_inits=None):
+             writer_dict=None, topk=(1,5), spectral_radius_mode=False, warm_inits=None, return_loss=False):
     batch_time = AverageMeter()
     losses = AverageMeter()
     spectral_radius_mode = spectral_radius_mode and (epoch % 10 == 0)
@@ -293,4 +293,7 @@ def validate(config, val_loader, model, criterion, lr_scheduler, epoch, output_d
         if spectral_radius_mode:
             writer.add_scalar('stability/sradius', sradiuses.avg, epoch)
 
-    return top1.avg
+    if return_loss:
+        return losses.avg
+    else:
+        return top1.avg

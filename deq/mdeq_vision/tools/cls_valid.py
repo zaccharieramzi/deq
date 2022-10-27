@@ -208,10 +208,14 @@ def main():
 
     if args.results_name is not None:
         write_header = not Path(args.results_name).is_file()
+        try:
+            perf = perf_indicator.cpu().numpy().item()
+        except AttributeError:
+            perf = perf_indicator
         df_results = pd.DataFrame({
             'phase': 'eval',
             'seed': seed,
-            'top1': perf_indicator.cpu().numpy().item(),
+            'top1': perf,
             'percent': args.percent,
             'opts': ",".join(args.opts),
             'warm_init': config.TRAIN.WARM_INIT,

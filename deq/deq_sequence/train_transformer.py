@@ -186,6 +186,10 @@ parser.add_argument('--load', type=str, default='',
 parser.add_argument('--name', type=str, default='N/A',
                     help='name of the trial')
 
+
+# Misc
+parser.add_argument('--results_file', type=str, default='results.csv',
+                    help='results file')
 args = parser.parse_args()
 args.tied = not args.not_tied
 args.pretrain_steps += args.start_train_steps

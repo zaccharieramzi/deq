@@ -7,6 +7,7 @@ import random
 import time
 
 import numpy as np
+import pandas as pd
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -587,6 +588,20 @@ if args.eval:
     logging('=' * 100)
 
     test_loss = evaluate(te_iter)
+    # add the test loss to the results file in csv format
+    # create the results file if it doesn't exist and add a header to it
+    # specifying the the following columns: n forward iterations
+    # test loss, test ppl val loss val ppl
+    # all via pandas
+    if not os.path.exists(args.results_file):
+        df = pd.DataFrame(columns=['n_forward', 'test_loss', 'test_ppl', 'val_loss', 'val_ppl'])
+        df.to_csv(args.results_file, index=False)
+    df = pd.read_csv(args.results_file)
+    df = df.append({'n_forward': args.f_thres, 'test_loss': test_loss, 'test_ppl': math.exp(test_loss),
+                    'val_loss': valid_loss, 'val_ppl': math.exp(valid_loss)}, ignore_index=True)
+    df.to_csv(args.results_file, index=False)
+
+
     logging('=' * 100)
     logging('| End of training | test loss {:5.2f} | test ppl {:9.3f}'.format(test_loss, math.exp(test_loss)))
     logging('=' * 100)

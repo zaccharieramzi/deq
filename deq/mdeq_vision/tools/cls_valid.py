@@ -26,6 +26,7 @@ from deq.mdeq_vision.lib import models
 from deq.mdeq_vision.lib.config import config
 from deq.mdeq_vision.lib.config import update_config
 from deq.mdeq_vision.lib.core.cls_function import validate
+from deq.mdeq_vision.lib.datasets.indexed_dataset import IndexedDataset
 from deq.mdeq_vision.lib.utils.modelsummary import get_model_summary
 from deq.mdeq_vision.lib.utils.utils import create_logger
 
@@ -65,6 +66,15 @@ def parse_args():
                         help='file in which to store the accuracy and hyperparameters',
                         type=str,
                         default=None)
+    parser.add_argument('--valid_on_train',
+                        help='validate on training data',
+                        action='store_true')
+    parser.add_argument('--use_loss_as_perf',
+                        help='Use loss as perf',
+                        action='store_true')
+    parser.add_argument('--use_warm_init',
+                        help='use warm inits when validating on train data',
+                        action='store_true')
     parser.add_argument('opts',
                         help="Modify config options using the command-line",
                         default=None,
@@ -73,6 +83,7 @@ def parse_args():
     update_config(config, args)
 
     return args
+
 
 def main():
     args = parse_args()
@@ -126,6 +137,20 @@ def main():
         # loading from a checkpoint and not the final state
         model.load_state_dict(state_dict['state_dict'])
 
+    if args.use_warm_init:
+        # afterwards we load the warm_inits dict
+        # using the pth.tar file corresponding to the model state file
+        warm_init_file = model_state_file.replace('.pth.tar', '_warm_inits.pth.tar')
+        if device_str == 'cuda':
+            warm_inits = torch.load(warm_init_file)
+        else:
+            warm_inits = torch.load(
+                warm_init_file,
+                map_location='cpu',
+            )
+    else:
+        warm_inits = None
+
     if torch.cuda.is_available():
         gpus = list(config.GPUS)
         model = torch.nn.DataParallel(model, device_ids=gpus).cuda()
@@ -139,7 +164,8 @@ def main():
     dataset_name = config.DATASET.DATASET
     topk = (1,5) if dataset_name == 'imagenet' else (1,)
     if dataset_name == 'imagenet':
-        valdir = os.path.join(config.DATASET.ROOT+'/images', config.DATASET.TEST_SET)
+        test_path = config.DATASET.TEST_SET if not args.valid_on_train else config.DATASET.TRAIN_SET
+        valdir = os.path.join(config.DATASET.ROOT+'/images', test_path)
         normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
         transform_valid = transforms.Compose([
             transforms.Resize(int(config.MODEL.IMAGE_SIZE[0] / 0.875)),
@@ -157,11 +183,15 @@ def main():
             transforms.ToTensor(),
             normalize,
         ])
-        valid_dataset = datasets.CIFAR10(root=f'{config.DATASET.ROOT}', train=False, download=True, transform=transform_valid)
+        valid_dataset = datasets.CIFAR10(root=f'{config.DATASET.ROOT}', train=args.valid_on_train, download=True, transform=transform_valid)
 
     test_batch_size = config.TEST.BATCH_SIZE_PER_GPU
     if torch.cuda.is_available():
         test_batch_size *= len(gpus)
+
+    if args.use_warm_init:
+        valid_dataset = IndexedDataset(valid_dataset)
+
     valid_loader = torch.utils.data.DataLoader(
         valid_dataset,
         batch_size=test_batch_size,
@@ -173,14 +203,19 @@ def main():
 
     # evaluate on validation set
     perf_indicator = validate(config, valid_loader, model, criterion, None, epoch=-1, output_dir=final_output_dir,
-             tb_log_dir=tb_log_dir, writer_dict=None, topk=topk, spectral_radius_mode=config.DEQ.SPECTRAL_RADIUS_MODE)
+             tb_log_dir=tb_log_dir, writer_dict=None, topk=topk, spectral_radius_mode=config.DEQ.SPECTRAL_RADIUS_MODE,
+             warm_inits=warm_inits, return_loss=args.use_loss_as_perf)
 
     if args.results_name is not None:
         write_header = not Path(args.results_name).is_file()
+        try:
+            perf = perf_indicator.cpu().numpy().item()
+        except AttributeError:
+            perf = perf_indicator
         df_results = pd.DataFrame({
             'phase': 'eval',
             'seed': seed,
-            'top1': perf_indicator.cpu().numpy().item(),
+            'top1': perf,
             'percent': args.percent,
             'opts': ",".join(args.opts),
             'warm_init': config.TRAIN.WARM_INIT,

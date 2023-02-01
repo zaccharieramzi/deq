@@ -6,13 +6,10 @@ from __future__ import print_function
 
 import argparse
 import os
-from pathlib import Path
 import pprint
-import time
 
 import numpy as np
-import pandas as pd
-from termcolor import colored
+from scipy.spatial import distance_matrix
 import torch
 import torch.nn as nn
 import torch.nn.parallel
@@ -22,14 +19,11 @@ import torch.utils.data
 import torch.utils.data.distributed
 import torchvision.datasets as datasets
 import torchvision.transforms as transforms
-from torch.utils.tensorboard import SummaryWriter
 
 from deq.lib.optimizations import VariationalHidDropout2d
 from deq.mdeq_vision.lib import models  # noqa F401
 from deq.mdeq_vision.lib.config import config
 from deq.mdeq_vision.lib.config import update_config
-from deq.mdeq_vision.lib.core.cls_function import train
-from deq.mdeq_vision.lib.utils.utils import get_optimizer
 from deq.mdeq_vision.lib.utils.utils import create_logger
 
 
@@ -74,13 +68,17 @@ def parse_args():
     parser.add_argument('--dropout_eval',
                         help='whether to use dropout during the evaluation',
                         action='store_true')
-    parser.add_argument('--ls',
-                        help='whether to use line search',
+    parser.add_argument('--broyden_matrices',
+                        help='whether to use broyden matrices when doing warm init',
                         action='store_true')
     parser.add_argument('--n_images',
                         help='number of images to use for evaluation',
                         type=int,
                         default=10)
+    parser.add_argument('--results_name',
+                        help='name of the results file',
+                        type=str,
+                        default='eq_init_results.csv')
     parser.add_argument('--seed',
                         help='random seed',
                         type=int,
@@ -98,7 +96,9 @@ def parse_args():
 
 def main():
     """
+    Set the --percent to make the duration of training vary.
     Set the --dropout_eval to use dropout during the evaluation.
+    Set the --broyden_matrices to use broyden matrices when doing warm init.
     Set the TRAIN.BEGIN_EPOCH for the checkpoint
     """
     args = parse_args()
@@ -110,11 +110,7 @@ def main():
     except RuntimeError:
         pass
     if torch.cuda.is_available():
-        print(colored("Setting default tensor type to cuda.FloatTensor", "cyan"))
         torch.set_default_tensor_type('torch.cuda.FloatTensor')
-        device_str = 'cuda'
-    else:
-        device_str = 'cpu'
 
     logger, final_output_dir, tb_log_dir = create_logger(
         config, args.cfg, 'train')
@@ -144,33 +140,35 @@ def main():
     criterion = nn.CrossEntropyLoss()
     if torch.cuda.is_available():
         criterion = criterion.cuda()
-    optimizer = get_optimizer(config, model)
-    lr_scheduler = None
 
-    last_epoch = config.TRAIN.BEGIN_EPOCH
-    checkpoint_name = 'checkpoint'
-    if seeding:
-        checkpoint_name += f'_seed{seed}'
-    model_state_file = os.path.join(
-        final_output_dir,
-        f'{checkpoint_name}_{last_epoch}.pth.tar',
-    )
+    if config.TEST.MODEL_FILE:
+        logger.info('=> loading model from {}'.format(config.TEST.MODEL_FILE))
+        model_state_file = config.TEST.MODEL_FILE
+    else:
+        base_final_state_name = 'final_state'
+        last_epoch = config.TRAIN.BEGIN_EPOCH
+        if seeding:
+            base_final_state_name += f'_seed{seed}'
+        model_state_file = os.path.join(
+            final_output_dir,
+            f'{base_final_state_name}_{last_epoch}.pth.tar',
+        )
+        logger.info('=> loading model from {}'.format(model_state_file))
     if torch.cuda.is_available():
         checkpoint = torch.load(model_state_file)
-        model.module.load_state_dict(checkpoint['state_dict'])
+        try:
+            model.module.load_state_dict(checkpoint)
+        except RuntimeError:
+            # loading from a checkpoint and not the final state
+            model.module.load_state_dict(checkpoint['state_dict'])
     else:
         checkpoint = torch.load(model_state_file, map_location='cpu')
-        model.load_state_dict(checkpoint['state_dict'])
+        try:
+            model.load_state_dict(checkpoint)
+        except RuntimeError:
+            # loading from a checkpoint and not the final state
+            model.load_state_dict(checkpoint['state_dict'])
 
-    # Update weight decay if needed
-    checkpoint['optimizer']['param_groups'][0]['weight_decay'] = config.TRAIN.WD
-    optimizer.load_state_dict(checkpoint['optimizer'])
-
-    if 'lr_scheduler' in checkpoint:
-        lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, 1e5,
-                            last_epoch=checkpoint['lr_scheduler']['last_epoch'])
-        lr_scheduler.load_state_dict(checkpoint['lr_scheduler'])
-    logger.info("=> loaded checkpoint (epoch {})".format(checkpoint['epoch']))
 
     # Data loading code
     dataset_name = config.DATASET.DATASET
@@ -207,142 +205,47 @@ def main():
     batch_size = config.TRAIN.BATCH_SIZE_PER_GPU
     if torch.cuda.is_available():
         batch_size = batch_size * len(config.GPUS)
-    aug_train_loader = torch.utils.data.DataLoader(
-        aug_train_dataset,
-        batch_size=batch_size,
-        shuffle=True,
-        num_workers=config.WORKERS,
-        pin_memory=True,
-        generator=torch.Generator(device=device_str),
-    )
-
-    # Learning rate scheduler
-    if lr_scheduler is None:
-        if config.TRAIN.LR_SCHEDULER != 'step':
-            lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-                optimizer, len(aug_train_loader)*config.TRAIN.END_EPOCH, eta_min=1e-6)
-        elif isinstance(config.TRAIN.LR_STEP, list):
-            lr_scheduler = torch.optim.lr_scheduler.MultiStepLR(
-                optimizer, config.TRAIN.LR_STEP, config.TRAIN.LR_FACTOR,
-                last_epoch-1)
-        else:
-            lr_scheduler = torch.optim.lr_scheduler.StepLR(
-                optimizer, config.TRAIN.LR_STEP, config.TRAIN.LR_FACTOR,
-                last_epoch-1)
-
-    # Loaded a checkpoint
 
     # Evaluating convergence before training
     model.eval()
     if args.dropout_eval:
         set_dropout_modules_active(model)
-    df_results = pd.DataFrame(columns=[
-        'image_index',
-        'analysis_time',
-        'seed',
-        'dataset',
-        'model_size',
-        'checkpoint',
-        'dropout',
-        'f_thres',
-        'eps',
-        'ls',
-        'vanilla_converged',
-        'vanilla_lowest',
-        'vanilla_nstep',
-        'rand_init_converged',
-        'rand_init_lowest',
-        'rand_init_nstep',
-    ])
-    f_thres = 40
-    eps = 1e-5
-    model_size = Path(args.cfg).stem[9:]
-    common_args = dict(
-        model_size=model_size,
-        dataset=dataset_name,
-        checkpoint=last_epoch,
-        seed=args.seed,
-        analysis_time=time.time(),
-        dropout=args.dropout_eval,
-        f_thres=f_thres,
-        eps=eps,
-        f_ls=args.ls,
-    )
-
     image_indices = np.random.choice(
         len(aug_train_dataset),
         args.n_images,
         replace=False,
     )
-    fn = model
+    fn = model.module._forward if torch.cuda.is_available() else model._forward
+    fixed_point_norms = []
+    fixed_points = []
+    original_images = []
     for image_index in image_indices:
         image, _ = aug_train_dataset[image_index]
         image = image.unsqueeze(0)
         if torch.cuda.is_available():
             image = image.cuda()
-        # first we do a run with a 0 init
-        *_, new_inits = fn(
-            image,
-            train_step=-1,
-            return_inits=True,
-            f_eps=eps,
-            f_thres=f_thres,
-            f_ls=args.ls,
-        )
-        *_, result_vanilla = fn(
-            image,
-            train_step=-1,
-            return_result=True,
-            f_eps=eps,
-            f_thres=f_thres,
-            f_ls=args.ls,
-        )
-        z1 = new_inits[0]
-
-        randn_init = torch.randn_like(z1) * torch.std(z1) + torch.mean(z1)
-
-        *_, new_inits = fn(
-            image,
-            train_step=-1,
-            return_inits=True,
-            f_eps=eps,
-            f_thres=f_thres,
-            f_ls=args.ls,
-            z1=randn_init,
-        )
-        *_, result_rand_init = fn(
-            image,
-            train_step=-1,
-            return_result=True,
-            f_eps=eps,
-            f_thres=f_thres,
-            ls=args.ls,
-            z1=randn_init,
-        )
-        z2 = new_inits[0]
-        mse = torch.mean((z1 - z2)**2 / z1**2)
-        df_diff = pd.DataFrame(data={
-            'image_index': [image_index],
-            'mse': [mse.cpu().numpy()],
-            'vanilla_converged': [result_vanilla['lowest'] < eps],
-            'vanilla_lowest': [result_vanilla['lowest']],
-            'vanilla_nstep': [result_vanilla['nstep']],
-            'rand_init_converged': [result_rand_init['lowest'] < eps],
-            'rand_init_lowest': [result_rand_init['lowest']],
-            'rand_init_nstep': [result_rand_init['nstep']],
-            **common_args,
-        })
-        df_results = df_results.append(df_diff, ignore_index=True)
-
-    results_name = 'init_analysis_results.csv'
-    write_header = not Path(results_name).is_file()
-    df_results.to_csv(
-        results_name,
-        mode='a',
-        header=write_header,
-        index=False,
+        # pot in kwargs we can have: f_thres, b_thres, lim_mem
+        *_, new_inits = fn(image, train_step=-1, return_inits=True)
+        fixed_point = new_inits[0]
+        fixed_points.append(fixed_point.cpu().detach().numpy().reshape(-1))
+        original_images.append(image.cpu().detach().numpy().reshape(-1))
+        # append to fixed_point_norms the norm of each sample in
+        # fixed_point (batch_size x ...)
+        norms = fixed_point.norm(dim=(1, 2), p=2)
+        fixed_point_norms.append(norms[0].cpu().numpy().item())
+    print(fixed_point_norms)
+    # compute the distance matrix between all fixed points
+    fixed_points = np.stack(fixed_points)
+    fixed_points_distances = distance_matrix(fixed_points, fixed_points)
+    original_images = np.stack(original_images)
+    original_images_distances = distance_matrix(
+        original_images,
+        original_images,
     )
-    return df_results
+    with np.printoptions(precision=3, suppress=True):
+        print(fixed_points_distances)
+        print(original_images_distances)
+    return fixed_point_norms, fixed_points_distances, original_images_distances
 
 
 if __name__ == '__main__':

@@ -35,6 +35,54 @@ def test_cls_train(config):
         main()
 
 
+def test_cls_train_head_only():
+    args = [
+        "main",
+        "--cfg",
+        "deq/mdeq_vision/experiments/cifar/cls_mdeq_TINY.yaml",
+        "--percent",
+        "0.0035",
+        "TRAIN.END_EPOCH",
+        "2",
+        "TRAIN.PRETRAIN_STEPS",
+        "1",
+        "DEQ.F_THRES",
+        "5",
+        "DEQ.B_THRES",
+        "5",
+        "MODEL.NUM_LAYERS",
+        "2",
+        "TRAIN.HEAD_ONLY",
+        "True",
+    ]
+    with patch("sys.argv", args):
+        main()
+
+
+def test_cls_train_power_method():
+    args = [
+        "main",
+        "--cfg",
+        "deq/mdeq_vision/experiments/cifar/cls_mdeq_TINY.yaml",
+        "--percent",
+        "0.0035",
+        "TRAIN.END_EPOCH",
+        "2",
+        "TRAIN.PRETRAIN_STEPS",
+        "1",
+        "DEQ.F_THRES",
+        "5",
+        "DEQ.B_THRES",
+        "5",
+        "MODEL.NUM_LAYERS",
+        "2",
+        "DEQ.F_SOLVER", "fixed_point_iteration",
+        "DEQ.B_SOLVER", "fixed_point_iteration",
+    ]
+    with patch("sys.argv", args):
+        main()
+
+
 def test_cls_train_save_res():
     filename = "results.csv"
     args = [
@@ -62,6 +110,34 @@ def test_cls_train_save_res():
     assert fileobj.exists()
     # cleanup
     fileobj.unlink()
+
+
+@pytest.mark.parametrize("config", [
+    "TINY",
+    "LARGE_reg",
+    "TINY_warm",
+])
+def test_cls_train_warm_init_back(config):
+    args = [
+        "main",
+        "--cfg",
+        f"deq/mdeq_vision/experiments/cifar/cls_mdeq_{config}.yaml",
+        "--percent", "0.0035",
+        "TRAIN.END_EPOCH", "2",
+        "TRAIN.PRETRAIN_STEPS", "1",
+        "DEQ.F_THRES", "5",
+        "DEQ.B_THRES", "5",
+        "MODEL.NUM_LAYERS", "2",
+        "TRAIN.WARM_INIT_BACK", "True",
+        "TRAIN.WARM_INIT_DIR", "./",
+        "WORKERS", "1",
+    ]
+    with patch("sys.argv", args):
+        main()
+    # clean up all *.pt files in the ./ dir
+    for f in os.listdir("./"):
+        if f.endswith(".pt"):
+            os.remove(f)
 
 
 @pytest.mark.skipif(

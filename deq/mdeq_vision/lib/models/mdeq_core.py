@@ -6,6 +6,7 @@ from collections import OrderedDict
 import functools
 import logging
 import os
+from pathlib import Path
 import sys
 
 import numpy as np
@@ -18,7 +19,8 @@ import torch.nn.functional as F
 import torch.autograd as autograd
 
 from deq.lib.optimizations import VariationalHidDropout2d, weight_norm
-from deq.lib.solvers import anderson, broyden
+from deq.lib.solvers import anderson, broyden, backprop_broyden
+from deq.lib.solvers import power_method as fixed_point_iteration
 from deq.lib.jacobian import jac_loss_estimate, power_method
 from deq.lib.layer_utils import list2vec, vec2list, norm_diff, conv3x3, conv5x5
 from deq.mdeq_vision.lib.utils.utils import get_world_size, get_rank
@@ -362,15 +364,33 @@ class MDEQNet(nn.Module):
         self.downsample_times = cfg['MODEL']['DOWNSAMPLE_TIMES']
         self.fullstage_cfg = cfg['MODEL']['EXTRA']['FULL_STAGE']
         self.pretrain_steps = cfg['TRAIN']['PRETRAIN_STEPS']
+        self.head_only = cfg['TRAIN']['HEAD_ONLY']
 
         # DEQ related
         self.f_solver = eval(cfg['DEQ']['F_SOLVER'])
         self.b_solver = eval(cfg['DEQ']['B_SOLVER'])
         if self.b_solver is None:
             self.b_solver = self.f_solver
+        if cfg['DEQ']['F_SOLVER'] == 'fixed_point_iteration':
+            self.f_solver_kwargs = {
+                'step_size': cfg['DEQ']['F_STEP_SIZE'],
+                'ls': cfg['DEQ']['F_LS'],
+            }
+        else:
+            self.f_solver_kwargs = {}
+        if cfg['DEQ']['B_SOLVER'] == 'fixed_point_iteration':
+            self.b_solver_kwargs = {
+                'step_size': cfg['DEQ']['B_STEP_SIZE'],
+                'ls': cfg['DEQ']['B_LS'],
+            }
+        else:
+            self.b_solver_kwargs = {}
         self.f_thres = cfg['DEQ']['F_THRES']
         self.b_thres = cfg['DEQ']['B_THRES']
         self.stop_mode = cfg['DEQ']['STOP_MODE']
+        self.f_eps = cfg['DEQ']['F_EPS']
+        self.b_eps = cfg['DEQ']['B_EPS']
+        self.rand_init = cfg['DEQ']['RAND_INIT']
 
         # Update global variables
         DEQ_EXPAND = cfg['MODEL']['EXPANSION_FACTOR']
@@ -378,6 +398,11 @@ class MDEQNet(nn.Module):
         BLOCK_GN_AFFINE = cfg['MODEL']['BLOCK_GN_AFFINE']
         FUSE_GN_AFFINE = cfg['MODEL']['FUSE_GN_AFFINE']
         POST_GN_AFFINE = cfg['MODEL']['POST_GN_AFFINE']
+
+        # warm init related
+        self.warm_init_dir = cfg['TRAIN']['WARM_INIT_DIR']
+        if self.warm_init_dir is not None:
+            self.warm_init_dir = Path(self.warm_init_dir)
 
     def _make_stage(self, layer_config, num_channels, dropout=0.0):
         """
@@ -397,20 +422,26 @@ class MDEQNet(nn.Module):
         """
         num_branches = self.num_branches
         f_thres = kwargs.get('f_thres', self.f_thres)
+        f_eps = kwargs.get('f_eps', self.f_eps)
+        f_ls = kwargs.get('f_ls', None)
         b_thres = kwargs.get('b_thres', self.b_thres)
+        b_eps = kwargs.get('b_eps', self.b_eps)
         z_list = kwargs.get('z_list', None)
         z1 = kwargs.get('z1', None)
         init_tensors = kwargs.get('init_tensors', None)
         grad_init = kwargs.get('grad_init', None)
+        indices = kwargs.get('indices', None)
         return_inits = kwargs.get('return_inits', False)
         return_result = kwargs.get('return_result', False)
         data_aug_invariance = kwargs.get('data_aug_invariance', False)
+        unrolled_broyden = kwargs.get('unrolled_broyden', False)
         if data_aug_invariance:
             # in this case x shape is
             # (batch_size, n_aug, channels, height, width)
             n_aug = x.size()[1]
             n_unique_images = x.size()[0]
             x = x.reshape(n_aug*n_unique_images, *x.size()[2:])
+        save_grad_result = kwargs.get('save_grad_result', False)
         x = self.downsample(x)
         rank = get_rank()
         deq_mode = (train_step < 0) or (train_step >= self.pretrain_steps)
@@ -422,7 +453,10 @@ class MDEQNet(nn.Module):
             x_list.append(torch.zeros(bsz, self.num_channels[i], H//2, W//2).to(x))   # ... and the rest are all zeros
 
         if z_list is None or not deq_mode:
-            z_list = [torch.zeros_like(elem) for elem in x_list]
+            z_list = [
+                torch.randn_like(elem) if self.rand_init else torch.zeros_like(elem)
+                for elem in x_list
+            ]
         if z1 is None or not deq_mode:
             z1 = list2vec(z_list)
         cutoffs = [(elem.size(1), elem.size(2), elem.size(3)) for elem in z_list]
@@ -437,7 +471,11 @@ class MDEQNet(nn.Module):
         # Multiscale Deep Equilibrium!
         if not deq_mode:
             for layer_ind in range(self.num_layers):
-                z1 = func(z1)
+                if self.f_solver_kwargs:
+                    step_size = self.f_solver_kwargs['step_size']
+                else:
+                    step_size = 1.0
+                z1 = z1 + step_size * (func(z1) - z1)
             new_z1 = z1
 
             if self.training:
@@ -445,8 +483,21 @@ class MDEQNet(nn.Module):
                     z2 = z1.clone().detach().requires_grad_()
                     new_z2 = func(z2)
                     jac_loss = jac_loss_estimate(new_z2, z2)
+        elif unrolled_broyden:
+            result_fw = backprop_broyden(
+                func,
+                z1,
+                threshold=f_thres,
+                stop_mode=self.stop_mode,
+                name="forward",
+                eps=1e-6,
+            )
+            new_z1 = func(result_fw.pop('result'))
         else:
             with torch.no_grad():
+                f_solver_kwargs = self.f_solver_kwargs
+                if f_ls is not None:
+                    f_solver_kwargs.update(ls=f_ls)
                 result_fw = self.f_solver(
                     func,
                     z1,
@@ -454,6 +505,8 @@ class MDEQNet(nn.Module):
                     stop_mode=self.stop_mode,
                     name="forward",
                     init_tensors=init_tensors,
+                    eps=f_eps,
+                    **self.f_solver_kwargs,
                 )
                 z1 = result_fw.pop('result')
             new_z1 = z1
@@ -463,10 +516,13 @@ class MDEQNet(nn.Module):
                     new_z1 = func(z1.requires_grad_())
                 _, sradius = power_method(new_z1, z1, n_iters=150)
 
-            if self.training:
+            if self.training and not self.head_only:
                 new_z1 = func(z1.requires_grad_())
                 if compute_jac_loss:
                     jac_loss = jac_loss_estimate(new_z1, z1)
+
+                def jac(y, grad):
+                    return autograd.grad(new_z1, z1, y, retain_graph=True)[0] + grad
 
                 def backward_hook(grad):
                     if self.hook is not None:
@@ -477,11 +533,27 @@ class MDEQNet(nn.Module):
                         grad_init_ = torch.zeros_like(grad)
                     else:
                         grad_init_ = grad_init
-                    result_bw = self.b_solver(lambda y: autograd.grad(new_z1, z1, y, retain_graph=True)[0] + grad, grad_init_,
-                                          threshold=b_thres, stop_mode=self.stop_mode, name="backward")
+                    result_bw = self.b_solver(
+                        functools.partial(jac, grad=grad), grad_init_,
+                        threshold=b_thres, stop_mode=self.stop_mode, name="backward", eps=b_eps,
+                        **self.b_solver_kwargs,
+                    )
                     new_grad = result_bw.pop('result')
-                    self.result_bw = result_bw
-                    self.new_grad = new_grad.detach().clone().cpu()
+                    # save the new gradients per elements of the batch
+                    # according to their indices
+                    if self.warm_init_dir is not None and indices is not None:
+                        for i_batch, idx in enumerate(indices):
+                            g = new_grad[i_batch].cpu()
+                            fname = f'{idx.cpu().numpy().item()}_back.pt'
+                            torch.save(
+                                g,
+                                self.warm_init_dir / fname,
+                            )
+                    if save_grad_result:
+                        torch.save(
+                            result_bw,
+                            self.warm_init_dir / 'grad_result.pt',
+                        )
                     return new_grad
                 self.hook = new_z1.register_hook(backward_hook)
         if data_aug_invariance:
@@ -503,8 +575,8 @@ class MDEQNet(nn.Module):
             if deq_mode:
                 new_inits = [
                     new_z1.detach().clone(),
-                    result_fw['Us'],
-                    result_fw['VTs'],
+                    result_fw.get('Us', None),
+                    result_fw.get('VTs', None),
                     torch.tensor(result_fw['nstep']).to(x).repeat(bsz),
                 ]
             else:

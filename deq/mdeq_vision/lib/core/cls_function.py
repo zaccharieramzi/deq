@@ -5,6 +5,7 @@ from __future__ import division
 from __future__ import print_function
 
 import logging
+from pathlib import Path
 import random
 import sys
 import time
@@ -44,8 +45,12 @@ def train(config, train_loader, model, criterion, optimizer, lr_scheduler, epoch
         if i >= effec_batch_num: break
 
         if warm_inits is None:
-            input, target = batch
-            z1 = None
+            if config.TRAIN.WARM_INIT or config.TRAIN.WARM_INIT_BACK:
+                input, target, z1, grad_init, indices = batch
+                warm_init_dir = Path(config.TRAIN.WARM_INIT_DIR)
+            else:
+                input, target = batch
+                z1 = None
             init_tensors = None
         else:
             use_broyden_matrices = config.TRAIN.USE_BROYDEN_MATRICES
@@ -102,6 +107,13 @@ def train(config, train_loader, model, criterion, optimizer, lr_scheduler, epoch
         if warm_inits is not None and z1 is None:
             f_thres *= 2
         b_thres = config.DEQ.B_THRES
+        if config.TRAIN.WARM_INIT_BACK:
+            extra_kwargs = dict(
+                grad_init=grad_init,
+                indices=indices,
+            )
+        else:
+            extra_kwargs = dict()
         output, jac_loss, *others, new_inits = model(
             input,
             train_step=(lr_scheduler._step_count-1),
@@ -113,10 +125,12 @@ def train(config, train_loader, model, criterion, optimizer, lr_scheduler, epoch
             writer=writer,
             return_inits=True,
             data_aug_invariance=config.LOSS.DATA_AUG_INVARIANCE,
+            **extra_kwargs,
         )
         if config.LOSS.DATA_AUG_INVARIANCE:
             distance_matrix = others[1]
             target = target.reshape(-1)
+        start_warm_init_write = time.time()
         if warm_inits is not None and new_inits is not None:
             for i_batch, idx in enumerate(indices):
                 if use_broyden_matrices:
@@ -127,6 +141,16 @@ def train(config, train_loader, model, criterion, optimizer, lr_scheduler, epoch
                 else:
                     ni = new_inits[0][i_batch].cpu()
                     warm_inits[idx.cpu().numpy().item()] = ni
+        elif config.TRAIN.WARM_INIT and new_inits is not None:
+            for i_batch, idx in enumerate(indices):
+                ni = new_inits[0][i_batch].cpu()
+                torch.save(
+                    ni,
+                    warm_init_dir / f'{idx.cpu().numpy().item()}.pt',
+                )
+        end_warm_init_write = time.time()
+        if i % config.PRINT_FREQ == 0:
+            logger.info(f'Warm init write time: {end_warm_init_write - start_warm_init_write}')
         if torch.cuda.is_available():
             target = target.cuda(non_blocking=True)
         loss = criterion(output, target)
@@ -192,7 +216,7 @@ def train(config, train_loader, model, criterion, optimizer, lr_scheduler, epoch
 
 
 def validate(config, val_loader, model, criterion, lr_scheduler, epoch, output_dir, tb_log_dir,
-             writer_dict=None, topk=(1,5), spectral_radius_mode=False):
+             writer_dict=None, topk=(1,5), spectral_radius_mode=False, warm_inits=None, return_loss=False):
     batch_time = AverageMeter()
     losses = AverageMeter()
     spectral_radius_mode = spectral_radius_mode and (epoch % 10 == 0)
@@ -210,16 +234,32 @@ def validate(config, val_loader, model, criterion, lr_scheduler, epoch, output_d
         # tk0 = tqdm(enumerate(val_loader), total=len(val_loader), position=0, leave=True)
         total_batch_num = len(val_loader)
         effec_batch_num = int(config.PERCENT * total_batch_num)
-        for i, (input, target) in enumerate(val_loader):
+        for i, batch in enumerate(val_loader):
             # eval on partial data as well for debugging purposes
             if i >= effec_batch_num and config.PERCENT < 1.0:
                 break
 
+            if warm_inits is None:
+                input, target = batch
+                z1 = None
+            else:
+                input, target, indices = batch
+                warm_inits_batch = [
+                    warm_inits[idx.cpu().numpy().item()].unsqueeze(0)
+                    for idx in indices
+                ]
+                # in z1 we concatenate all the warm inits elements
+                z1 = torch.cat(warm_inits_batch, dim=0).to(input)
+
             # compute output
-            output, _, sradius = model(input,
-                                 train_step=(-1 if epoch < 0 else (lr_scheduler._step_count-1)),
-                                 compute_jac_loss=False, spectral_radius_mode=spectral_radius_mode,
-                                 writer=writer)
+            output, _, sradius = model(
+                input,
+                train_step=(-1 if epoch < 0 else (lr_scheduler._step_count-1)),
+                compute_jac_loss=False,
+                spectral_radius_mode=spectral_radius_mode,
+                writer=writer,
+                z1=z1,
+            )
             if torch.cuda.is_available():
                 target = target.cuda(non_blocking=True)
             loss = criterion(output, target)
@@ -253,4 +293,7 @@ def validate(config, val_loader, model, criterion, lr_scheduler, epoch, output_d
         if spectral_radius_mode:
             writer.add_scalar('stability/sradius', sradiuses.avg, epoch)
 
-    return top1.avg
+    if return_loss:
+        return losses.avg
+    else:
+        return top1.avg

@@ -32,6 +32,10 @@ from deq.mdeq_vision.lib.datasets.indexed_dataset import IndexedDataset
 from deq.mdeq_vision.lib.datasets.multiple_augmentation_dataset import (
     MultiAugmentationDataset,
 )
+from deq.mdeq_vision.lib.datasets.warm_init_dataset import (
+    WarmInitDataset,
+    collate_fn_none,
+)
 from deq.mdeq_vision.lib.utils.modelsummary import get_model_summary
 from deq.mdeq_vision.lib.utils.utils import get_optimizer
 from deq.mdeq_vision.lib.utils.utils import save_checkpoint
@@ -160,6 +164,7 @@ def main():
     best_perf = 0.0
     best_model = False
     last_epoch = config.TRAIN.BEGIN_EPOCH
+    warm_inits = None
     if config.TRAIN.RESUME:
         checkpoint_name = 'checkpoint'
         if seeding:
@@ -187,6 +192,8 @@ def main():
                 lr_scheduler.load_state_dict(checkpoint['lr_scheduler'])
             logger.info("=> loaded checkpoint (epoch {})".format(checkpoint['epoch']))
             best_model = True
+            warm_inits = checkpoint['warm_inits']
+
 
     # Data loading code
     dataset_name = config.DATASET.DATASET
@@ -236,10 +243,20 @@ def main():
     if config.TRAIN.WARM_INIT:
         # this is where we modify the dataset to include the indices
         # in order to have a map from the indices to the warm inits
-        train_dataset = IndexedDataset(train_dataset)
-        warm_inits = {}
-    else:
-        warm_inits = None
+        if dataset_name == 'cifar10' and not config.TRAIN.WARM_INIT_BACK:
+            train_dataset = IndexedDataset(train_dataset)
+            if warm_inits is None:
+                warm_inits = {}
+        else:
+            train_dataset = WarmInitDataset(
+                train_dataset,
+                config.TRAIN.WARM_INIT_DIR,
+            )
+    elif config.TRAIN.WARM_INIT_BACK:
+        train_dataset = WarmInitDataset(
+            train_dataset,
+            config.TRAIN.WARM_INIT_DIR,
+        )
 
     batch_size = config.TRAIN.BATCH_SIZE_PER_GPU
     test_batch_size = config.TEST.BATCH_SIZE_PER_GPU
@@ -253,6 +270,7 @@ def main():
         num_workers=config.WORKERS,
         pin_memory=True,
         generator=torch.Generator(device=device_str),
+        collate_fn=collate_fn_none,
     )
     valid_loader = torch.utils.data.DataLoader(
         valid_dataset,
@@ -326,6 +344,7 @@ def main():
                 'optimizer': optimizer.state_dict(),
                 'lr_scheduler': lr_scheduler.state_dict(),
                 'train_global_steps': writer_dict['train_global_steps'],
+                'warm_inits': warm_inits,
             }, best_model, final_output_dir, filename=checkpoint_file)
 
     base_final_state_name = 'final_state'
@@ -338,6 +357,11 @@ def main():
     logger.info('saving final model state to {}'.format(final_model_state_file))
     state_dict = model.module.state_dict() if torch.cuda.is_available() else model.state_dict()
     torch.save(state_dict, final_model_state_file)
+    final_warm_init_file = os.path.join(
+        final_output_dir,
+        f'{base_final_state_name}_warm_inits.pth.tar',
+    )
+    torch.save(warm_inits, final_warm_init_file)
     if writer_dict['writer'] is not None:
         writer_dict['writer'].close()
     if args.results_name is not None:

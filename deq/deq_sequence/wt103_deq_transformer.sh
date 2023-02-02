@@ -4,7 +4,6 @@ if [[ $1 == 'train' ]]; then
     echo 'Run training (DEQ-Transformer)...'
     python train_transformer.py \
         --cuda \
-        --data ./data/wikitext-103/ \
         --dataset wt103 \
         --adaptive \
         --div_val 4 \

@@ -26,7 +26,6 @@ if [[ $1 == 'train' ]]; then
         --mem_len 150 \
         --eval_tgt_len 150 \
         --wnorm \
-        --f_solver broyden \
         --b_solver broyden \
         --stop_mode rel \
         --b_thres 35 \

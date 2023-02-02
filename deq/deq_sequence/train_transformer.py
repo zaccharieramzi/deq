@@ -118,6 +118,7 @@ parser.add_argument('--f_thres', type=int, default=40,
                     help='forward pass Broyden threshold')
 parser.add_argument('--b_thres', type=int, default=40,
                     help='backward pass Broyden threshold')
+parser.add_argument('--f_eps', type=float, default=1e-3)
 
 # Jacobian regularization related [Bai et al. 2021]
 parser.add_argument('--jac_loss_weight', type=float, default=0.0,
@@ -323,7 +324,8 @@ else:
                              div_val=args.div_val, tie_projs=tie_projs, pre_lnorm=args.pre_lnorm,
                              wnorm=args.wnorm, local_size=args.local_size, pretrain_steps=args.pretrain_steps,
                              tgt_len=args.tgt_len, mem_len=args.mem_len, cutoffs=cutoffs, load=args.load,
-                             f_solver=eval(args.f_solver), b_solver=eval(args.b_solver), stop_mode=args.stop_mode, logging=logging)
+                             f_solver=eval(args.f_solver), b_solver=eval(args.b_solver), stop_mode=args.stop_mode, logging=logging,
+                             f_eps=args.f_eps)
     if len(args.load) == 0:
         model.apply(weights_init)    # Note: This applies weight_init recursively to modules in model
         model.word_emb.apply(weights_init)

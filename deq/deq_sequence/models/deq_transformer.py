@@ -205,7 +205,7 @@ class DEQTransformerLM(nn.Module):
                  dropout, dropatt, tie_weights=True, d_embed=None, div_val=1,
                  tie_projs=[False], pre_lnorm=False, wnorm=False, tgt_len=None,
                  mem_len=None, local_size=0, pretrain_steps=1, cutoffs=[], load='',
-                 f_solver=anderson, b_solver=None, stop_mode="rel", logging=None):
+                 f_solver=anderson, b_solver=None, stop_mode="rel", logging=None, f_eps=1e-3):
         super().__init__()
         self.n_token = n_token
 
@@ -233,6 +233,7 @@ class DEQTransformerLM(nn.Module):
         self.func = RelPartialLearnableDecoderLayer(n_head, d_model, d_head, d_inner, dropout=dropout, dropatt=dropatt,
                                                     pre_lnorm=pre_lnorm, local_size=local_size)
         self.f_solver = f_solver
+        self.f_eps = f_eps
         self.b_solver = b_solver if b_solver else self.f_solver
         self.hook = None
         self.stop_mode = stop_mode
@@ -351,7 +352,7 @@ class DEQTransformerLM(nn.Module):
             # Compute the equilibrium via DEQ. When in training mode, we need to register the analytical backward
             # pass according to the Theorem 1 in the paper.
             with torch.no_grad():
-                result = self.f_solver(lambda z: self.func(z, *func_args), z1s, threshold=f_thres, stop_mode=self.stop_mode)
+                result = self.f_solver(lambda z: self.func(z, *func_args), z1s, threshold=f_thres, stop_mode=self.stop_mode, eps=self.f_eps)
                 z1s = result['result']
             new_z1s = z1s
 

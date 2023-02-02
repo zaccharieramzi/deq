@@ -30,7 +30,6 @@ if [[ $1 == 'train' ]]; then
         --f_solver anderson \
         --b_solver broyden \
         --stop_mode rel \
-        # --f_thres 30 \
         --b_thres 35 \
         --jac_loss_weight 0.0 \
         --jac_loss_freq 0.0 \

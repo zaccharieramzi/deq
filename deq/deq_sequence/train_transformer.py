@@ -594,17 +594,19 @@ if args.eval:
     logging('=' * 100)
 
     test_loss = evaluate(te_iter)
+    train_loss = evaluate(tr_iter)
     # add the test loss to the results file in csv format
     # create the results file if it doesn't exist and add a header to it
     # specifying the the following columns: n forward iterations
     # test loss, test ppl val loss val ppl
     # all via pandas
     if not os.path.exists(args.results_file):
-        df = pd.DataFrame(columns=['n_forward', 'test_loss', 'test_ppl', 'val_loss', 'val_ppl'])
+        df = pd.DataFrame(columns=['n_forward', 'test_loss', 'test_ppl', 'val_loss', 'val_ppl', 'train_loss', 'train_ppl'])
         df.to_csv(args.results_file, index=False)
     df = pd.read_csv(args.results_file)
     df = df.append({'n_forward': args.f_thres, 'test_loss': test_loss, 'test_ppl': math.exp(test_loss),
-                    'val_loss': valid_loss, 'val_ppl': math.exp(valid_loss)}, ignore_index=True)
+                    'val_loss': valid_loss, 'val_ppl': math.exp(valid_loss),
+                    'train_loss': train_loss, 'train_ppl': math.exp(train_loss)}, ignore_index=True)
     df.to_csv(args.results_file, index=False)
 
 

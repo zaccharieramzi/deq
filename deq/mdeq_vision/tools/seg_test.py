@@ -139,7 +139,6 @@ def main():
         shuffle=False,
         num_workers=config.WORKERS,
         pin_memory=True,
-        generator=torch.Generator(device=device_str),
     )
 
     start = timeit.default_timer()

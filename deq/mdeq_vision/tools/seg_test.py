@@ -12,7 +12,7 @@ import timeit
 from pathlib import Path
 
 import numpy as np
-
+import pandas as pd
 import torch
 import torch.nn as nn
 import torch.backends.cudnn as cudnn
@@ -52,6 +52,10 @@ def parse_args():
                         help='percentage of training data to use',
                         type=float,
                         default=1.0)
+    parser.add_argument('--results_name',
+                        help='file in which to store the accuracy and hyperparameters',
+                        type=str,
+                        default=None)
     parser.add_argument("--local_rank", type=int, default=0)
     parser.add_argument('opts',
                         help="Modify config options using the command-line",
@@ -152,6 +156,27 @@ def main():
             pixel_acc, mean_acc)
         logging.info(msg)
         logging.info(IoU_array)
+        if args.results_name is not None:
+            write_header = not Path(args.results_name).is_file()
+            try:
+                perf = mean_IoU.cpu().numpy().item()
+            except AttributeError:
+                perf = mean_IoU
+            df_results = pd.DataFrame({
+                'phase': 'eval',
+                'miou': perf,
+                'percent': args.percent,
+                'opts': ",".join(args.opts),
+                'f_thres_val': config.DEQ.F_THRES,
+                'dataset': 'cityscapes',
+                'model_size': os.path.basename(args.cfg).split('.')[0],
+            }, index=[0])
+            df_results.to_csv(
+                args.results_name,
+                mode='a',
+                header=write_header,
+                index=False,
+            )
     elif 'test' in config.DATASET.TEST_SET:
         test(config,
              test_dataset,

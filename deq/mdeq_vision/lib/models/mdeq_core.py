@@ -364,6 +364,7 @@ class MDEQNet(nn.Module):
         self.downsample_times = cfg['MODEL']['DOWNSAMPLE_TIMES']
         self.fullstage_cfg = cfg['MODEL']['EXTRA']['FULL_STAGE']
         self.pretrain_steps = cfg['TRAIN']['PRETRAIN_STEPS']
+        self.all_unrolled = cfg['TRAIN']['ALL_UNROLLED']
         self.head_only = cfg['TRAIN']['HEAD_ONLY']
 
         # DEQ related
@@ -483,7 +484,7 @@ class MDEQNet(nn.Module):
                     z2 = z1.clone().detach().requires_grad_()
                     new_z2 = func(z2)
                     jac_loss = jac_loss_estimate(new_z2, z2)
-        elif unrolled_broyden:
+        elif unrolled_broyden or self.all_unrolled:
             result_fw = backprop_broyden(
                 func,
                 z1,

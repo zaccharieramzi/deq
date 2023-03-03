@@ -183,13 +183,18 @@ def validate(config, testloader, model, lr_scheduler, epoch, writer_dict, device
 def testval(config, test_dataset, testloader, model, sv_dir='', sv_pred=False):
     model.eval()
     confusion_matrix = np.zeros((config.DATASET.NUM_CLASSES, config.DATASET.NUM_CLASSES))
+    convergence_rel = AverageMeter()
+    convergence_abs = AverageMeter()
     with torch.no_grad():
         for index, batch in enumerate(tqdm(testloader)):
             image, label, _, name = batch
             size = label.size()
-            pred = test_dataset.multi_scale_inference(model, image,
+            pred, result_fw = test_dataset.multi_scale_inference(model, image,
                         scales=config.TEST.SCALE_LIST,
                         flip=config.TEST.FLIP_TEST)
+
+            convergence_rel.update(result_fw['rel_trace'].item(), input.size(0))
+            convergence_abs.update(result_fw['abs_trace'].item(), input.size(0))
 
             if pred.size()[-2] != size[-2] or pred.size()[-1] != size[-1]:
                 pred = F.interpolate(pred, (size[-2], size[-1]), mode='bilinear', align_corners=True)
@@ -224,7 +229,7 @@ def testval(config, test_dataset, testloader, model, sv_dir='', sv_pred=False):
     IoU_array = (tp / np.maximum(1.0, pos + res - tp))
     mean_IoU = IoU_array.mean()
 
-    return mean_IoU, IoU_array, pixel_acc, mean_acc
+    return mean_IoU, IoU_array, pixel_acc, mean_acc, convergence_rel.avg, convergence_abs.avg
 
 def test(config, test_dataset, testloader, model, sv_dir='', sv_pred=True):
     model.eval()

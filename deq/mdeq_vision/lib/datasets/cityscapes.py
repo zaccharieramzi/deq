@@ -28,12 +28,13 @@ class Cityscapes(BaseDataset):
                  crop_size=(512, 1024),
                  center_crop_test=False,
                  downsample_rate=1,
+                 return_convergence=False,
                  scale_factor=16,
                  mean=[0.485, 0.456, 0.406],
                  std=[0.229, 0.224, 0.225]):
 
         super(Cityscapes, self).__init__(ignore_label, base_size,
-                crop_size, downsample_rate, scale_factor, mean, std,)
+                crop_size, downsample_rate, scale_factor, mean, std, return_convergence=return_convergence)
 
         self.root = root
         self.list_path = list_path
@@ -144,7 +145,10 @@ class Cityscapes(BaseDataset):
                 new_img = new_img.transpose((2, 0, 1))
                 new_img = np.expand_dims(new_img, axis=0)
                 new_img = torch.from_numpy(new_img)
-                preds = self.inference(model, new_img, flip)
+                if self.return_convergence:
+                    preds, result_fw = self.inference(model, new_img, flip)
+                else:
+                    preds = self.inference(model, new_img, flip)
                 preds = preds[:, :, 0:height, 0:width]
             else:
                 new_h, new_w = new_img.shape[:-1]
@@ -180,7 +184,12 @@ class Cityscapes(BaseDataset):
             preds = F.upsample(preds, (ori_height, ori_width),
                                    mode='bilinear')
             final_pred += preds
-        return final_pred
+        if self.return_convergence:
+            # in practice no multiscale is used to we can just return the
+            # only result_fw
+            return final_pred, result_fw
+        else:
+            return final_pred
 
     def get_palette(self, n):
         palette = [0] * (n * 3)

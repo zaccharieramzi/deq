@@ -143,12 +143,14 @@ def main():
 
     start = timeit.default_timer()
     if 'val' in config.DATASET.TEST_SET:
-        mean_IoU, IoU_array, pixel_acc, mean_acc = testval(config,
-                                                           test_dataset,
-                                                           testloader,
-                                                           model,
-                                                           sv_dir=final_output_dir,
-                                                           sv_pred=True)
+        mean_IoU, IoU_array, pixel_acc, mean_acc, cvg_rel, cvg_abs = testval(
+            config,
+            test_dataset,
+            testloader,
+            model,
+            sv_dir=final_output_dir,
+            sv_pred=True,
+        )
 
         msg = 'MeanIU: {: 4.4f}, Pixel_Acc: {: 4.4f}, \
             Mean_Acc: {: 4.4f}, Class IoU: '.format(mean_IoU,
@@ -164,6 +166,8 @@ def main():
             df_results = pd.DataFrame({
                 'phase': 'eval',
                 'miou': perf,
+                'cvg_rel': cvg_rel,
+                'cvg_abs': cvg_abs,
                 'percent': args.percent,
                 'opts': ",".join(args.opts),
                 'f_thres_val': config.DEQ.F_THRES,

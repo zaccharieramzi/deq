@@ -216,7 +216,7 @@ def train(config, train_loader, model, criterion, optimizer, lr_scheduler, epoch
 
 
 def validate(config, val_loader, model, criterion, lr_scheduler, epoch, output_dir, tb_log_dir,
-             writer_dict=None, topk=(1,5), spectral_radius_mode=False, warm_inits=None, return_loss=False):
+             writer_dict=None, topk=(1,5), spectral_radius_mode=False, warm_inits=None, return_loss=False, return_convergence=False):
     batch_time = AverageMeter()
     losses = AverageMeter()
     spectral_radius_mode = spectral_radius_mode and (epoch % 10 == 0)
@@ -224,6 +224,9 @@ def validate(config, val_loader, model, criterion, lr_scheduler, epoch, output_d
         sradiuses = AverageMeter()
     top1 = AverageMeter()
     top5 = AverageMeter()
+    if return_convergence:
+        convergence_rel = AverageMeter()
+        convergence_abs = AverageMeter()
     writer = writer_dict['writer'] if writer_dict else None
 
     # switch to evaluate mode
@@ -252,14 +255,19 @@ def validate(config, val_loader, model, criterion, lr_scheduler, epoch, output_d
                 z1 = torch.cat(warm_inits_batch, dim=0).to(input)
 
             # compute output
-            output, _, sradius = model(
+            model_out = model(
                 input,
                 train_step=(-1 if epoch < 0 else (lr_scheduler._step_count-1)),
                 compute_jac_loss=False,
                 spectral_radius_mode=spectral_radius_mode,
                 writer=writer,
                 z1=z1,
+                return_result=return_convergence,
             )
+            if return_convergence:
+                output, _, sradius = model_out
+            else:
+                output, _, sradius, result_fw = model_out
             if torch.cuda.is_available():
                 target = target.cuda(non_blocking=True)
             loss = criterion(output, target)
@@ -269,6 +277,9 @@ def validate(config, val_loader, model, criterion, lr_scheduler, epoch, output_d
             prec1, prec5 = accuracy(output, target, topk=topk)
             top1.update(prec1[0], input.size(0))
             top5.update(prec5[0], input.size(0))
+            if return_convergence:
+                convergence_rel.update(result_fw['rel_trace'].item(), input.size(0))
+                convergence_abs.update(result_fw['abs_trace'].item(), input.size(0))
 
             if spectral_radius_mode:
                 sradius = sradius.mean()
@@ -296,4 +307,7 @@ def validate(config, val_loader, model, criterion, lr_scheduler, epoch, output_d
     if return_loss:
         return losses.avg
     else:
-        return top1.avg
+        if return_convergence:
+            return top1.avg, convergence_rel.avg, convergence_abs.avg
+        else
+            return top1.avg

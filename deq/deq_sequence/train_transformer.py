@@ -19,6 +19,7 @@ from deq.lib.solvers import anderson, broyden
 from deq.lib import radam
 from deq.deq_sequence.utils.exp_utils import create_exp_dir
 from deq.deq_sequence.utils.data_parallel import BalancedDataParallel
+from deq.mdeq_vision.lib.utils.utils import AverageMeter
 
 
 parser = argparse.ArgumentParser(description='PyTorch DEQ Sequence Model')
@@ -408,7 +409,7 @@ logging('=' * 100)
 # Training code
 ###############################################################################
 
-def evaluate(eval_iter):
+def evaluate(eval_iter, return_convergence=False):
     global train_step
     model.eval()
     model.reset_length(args.eval_tgt_len, args.mem_len)
@@ -418,6 +419,9 @@ def evaluate(eval_iter):
     rho_list = []
     if args.spectral_radius_mode:
         print("WARNING: You are evaluating with the power method at val. time. This may make things extremely slow.")
+    if return_convergence:
+        convergence_rel = AverageMeter()
+        convergence_abs = AverageMeter()
     with torch.no_grad():
         mems = []
         for i, (data, target, seq_len) in enumerate(eval_iter):
@@ -425,8 +429,15 @@ def evaluate(eval_iter):
                 break
             ret = para_model(data, target, mems, train_step=train_step, f_thres=args.f_thres,
                              b_thres=args.b_thres, compute_jac_loss=False,
-                             spectral_radius_mode=args.spectral_radius_mode, writer=writer)
-            loss, _, sradius, mems = ret[0], ret[1], ret[2], ret[3:]
+                             spectral_radius_mode=args.spectral_radius_mode, writer=writer, return_result=return_convergence)
+            if return_convergence:
+                result_fw = ret[3]
+                mems = ret[4:]
+                convergence_rel.update(result_fw['rel_trace'].item(), target.size(0))
+                convergence_abs.update(result_fw['abs_trace'].item(), target.size(0))
+            else:
+                mems = ret[3:]
+            loss, _, sradius = ret[0], ret[1], ret[2]
             loss = loss.mean()
             if args.spectral_radius_mode:
                 rho_list.append(sradius.mean().item())
@@ -435,7 +446,10 @@ def evaluate(eval_iter):
     if rho_list:
         logging(f"(Estimated) Spectral radius over validation set: {np.mean(rho_list)}")
     model.train()
-    return total_loss / total_len
+    if return_convergence:
+        return total_loss / total_len, convergence_rel.avg, convergence_abs.avg
+    else:
+        return total_loss / total_len
 
 
 def train():

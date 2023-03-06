@@ -300,7 +300,7 @@ class DEQTransformerLM(nn.Module):
             return [new_z0, new_u0]
 
     def _forward(self, dec_inp, mems=None, f_thres=30, b_thres=40, train_step=-1,
-                 compute_jac_loss=True, spectral_radius_mode=False, writer=None):
+                 compute_jac_loss=True, spectral_radius_mode=False, writer=None, return_result=False):
         """
         Apply the DEQ-Transformer language model on input word tokens
 
@@ -381,7 +381,10 @@ class DEQTransformerLM(nn.Module):
 
         core_out = self.iodrop(new_z1s, self.dropout).permute(2,0,1).contiguous()       # qlen x bsz x d_model
         new_mems = self._update_mems(new_z1s, us, z0, mlen, qlen)
-        return core_out, new_mems, jac_loss.view(-1,1), sradius.view(-1,1)
+        if return_result:
+            return core_out, new_mems, jac_loss.view(-1,1), sradius.view(-1,1), result
+        else:
+            return core_out, new_mems, jac_loss.view(-1,1), sradius.view(-1,1)
 
     def forward(self, data, target, mems, train_step=-1, **kwargs):
         # nn.DataParallel does not allow size(0) tensors to be broadcasted.
@@ -407,14 +410,23 @@ class DEQTransformerLM(nn.Module):
         compute_jac_loss = kwargs.get('compute_jac_loss', True)
         sradius_mode = kwargs.get('spectral_radius_mode', False)
         writer = kwargs.get('writer', None)
-        hidden, new_mems, jac_loss, sradius = self._forward(data, mems=mems, f_thres=f_thres, b_thres=b_thres, train_step=train_step,
+        return_result = kwargs.get('return_result', False)
+        out = self._forward(data, mems=mems, f_thres=f_thres, b_thres=b_thres, train_step=train_step,
                                                             compute_jac_loss=compute_jac_loss, spectral_radius_mode=sradius_mode,
-                                                            writer=writer)
+                                                            writer=writer, return_result=return_result)
+        if return_result:
+            hidden, new_mems, jac_loss, sradius, result_fw = out
+        else:
+            hidden, new_mems, jac_loss, sradius = out
         pred_hid = hidden[-tgt_len:]
         loss = self.crit(pred_hid.view(-1, pred_hid.size(-1)), target.contiguous().view(-1))
         loss = loss.view(tgt_len, -1)
 
         if new_mems is None:
+            if return_result:
+                return [loss, jac_loss, sradius, result_fw]
             return [loss, jac_loss, sradius]
         else:
+            if return_result:
+                return [loss, jac_loss, sradius, result_fw] + new_mems
             return [loss, jac_loss, sradius] + new_mems

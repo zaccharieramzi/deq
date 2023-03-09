@@ -151,7 +151,7 @@ class BaseDataset(data.Dataset):
 
     def inference(self, model, image, flip=False):
         size = image.size()
-        pred, *_, result_fw = model(x=image, train_step=-1, return_convergence=self.return_convergence)
+        pred, *_, result_fw = model(x=image, train_step=-1, return_result=self.return_convergence)
         pred = F.upsample(input=pred,
                           size=(size[-2], size[-1]),
                           mode='bilinear')

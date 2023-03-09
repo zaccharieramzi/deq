@@ -309,5 +309,5 @@ def validate(config, val_loader, model, criterion, lr_scheduler, epoch, output_d
     else:
         if return_convergence:
             return top1.avg, convergence_rel.avg, convergence_abs.avg
-        else
+        else:
             return top1.avg

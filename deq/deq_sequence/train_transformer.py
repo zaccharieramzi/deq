@@ -602,25 +602,45 @@ eval_start_time = time.time()
 if args.eval:
     train_step = 1e9
     epoch = -1
-    valid_loss = evaluate(va_iter)
+    valid_loss, valid_cvg_rel, valid_cvg_abs = evaluate(va_iter, return_convergence=True)
     logging('=' * 100)
     logging('| End of training | valid loss {:5.2f} | valid ppl {:9.3f}'.format(valid_loss, math.exp(valid_loss)))
     logging('=' * 100)
 
-    test_loss = evaluate(te_iter)
-    train_loss = evaluate(tr_iter)
+    test_loss, test_cvg_rel, test_cvg_abs = evaluate(te_iter, return_convergence=True)
+    train_loss, train_cvg_rel, train_cvg_abs = evaluate(tr_iter, return_convergence=True)
     # add the test loss to the results file in csv format
     # create the results file if it doesn't exist and add a header to it
     # specifying the the following columns: n forward iterations
     # test loss, test ppl val loss val ppl
     # all via pandas
     if not os.path.exists(args.results_file):
-        df = pd.DataFrame(columns=['n_forward', 'test_loss', 'test_ppl', 'val_loss', 'val_ppl', 'train_loss', 'train_ppl', 'f_solver'])
+        df = pd.DataFrame(columns=[
+            'n_forward',
+            'test_loss',
+            'test_ppl',
+            'test_cvg_rel',
+            'test_cvg_abs',
+            'val_loss',
+            'val_ppl',
+            'val_cvg_rel',
+            'val_cvg_abs',
+            'train_loss',
+            'train_ppl',
+            'train_cvg_rel',
+            'train_cvg_abs',
+            'f_solver',
+        ])
         df.to_csv(args.results_file, index=False)
     df = pd.read_csv(args.results_file)
     df = df.append({'n_forward': args.f_thres, 'test_loss': test_loss, 'test_ppl': math.exp(test_loss),
-                    'val_loss': valid_loss, 'val_ppl': math.exp(valid_loss), 'f_solver': args.f_solver,
-                    'train_loss': train_loss, 'train_ppl': math.exp(train_loss)}, ignore_index=True)
+                    'test_cvg_rel': test_cvg_rel, 'test_cvg_abs': test_cvg_abs,
+                    'val_loss': valid_loss, 'val_ppl': math.exp(valid_loss),
+                    'val_cvg_rel': val_cvg_rel, 'val_cvg_abs': val_cvg_abs,
+                    'f_solver': args.f_solver,
+                    'train_loss': train_loss, 'train_ppl': math.exp(train_loss),
+                    'train_cvg_rel': train_cvg_rel, 'train_cvg_abs': train_cvg_abs,
+    }, ignore_index=True)
     df.to_csv(args.results_file, index=False)
 
 

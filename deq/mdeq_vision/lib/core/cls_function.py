@@ -264,7 +264,7 @@ def validate(config, val_loader, model, criterion, lr_scheduler, epoch, output_d
                 z1=z1,
                 return_result=return_convergence,
             )
-            if return_convergence:
+            if not return_convergence:
                 output, _, sradius = model_out
             else:
                 output, _, sradius, result_fw = model_out

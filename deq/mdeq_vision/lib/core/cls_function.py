@@ -278,8 +278,8 @@ def validate(config, val_loader, model, criterion, lr_scheduler, epoch, output_d
             top1.update(prec1[0], input.size(0))
             top5.update(prec5[0], input.size(0))
             if return_convergence:
-                convergence_rel.update(result_fw['rel_trace'].mean(), input.size(0))
-                convergence_abs.update(result_fw['abs_trace'].mean(), input.size(0))
+                convergence_rel.update(np.mean(result_fw['rel_trace']), input.size(0))
+                convergence_abs.update(np.mean(result_fw['abs_trace']), input.size(0))
 
             if spectral_radius_mode:
                 sradius = sradius.mean()

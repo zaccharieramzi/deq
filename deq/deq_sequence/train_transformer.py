@@ -433,8 +433,8 @@ def evaluate(eval_iter, return_convergence=False):
             if return_convergence:
                 result_fw = ret[3]
                 mems = ret[4:]
-                convergence_rel.update(torch.mean(result_fw['rel_trace']), target.size(0))
-                convergence_abs.update(torch.mean(result_fw['abs_trace']), target.size(0))
+                convergence_rel.update(np.mean(result_fw['rel_trace']), target.size(0))
+                convergence_abs.update(np.mean(result_fw['abs_trace']), target.size(0))
             else:
                 mems = ret[3:]
             loss, _, sradius = ret[0], ret[1], ret[2]

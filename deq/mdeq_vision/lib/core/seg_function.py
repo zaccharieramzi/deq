@@ -193,8 +193,8 @@ def testval(config, test_dataset, testloader, model, sv_dir='', sv_pred=False):
                         scales=config.TEST.SCALE_LIST,
                         flip=config.TEST.FLIP_TEST)
 
-            convergence_rel.update(np.mean([r[-1] for r in result_fw['rel_trace']]), size)
-            convergence_abs.update(np.mean([r[-1] for r in result_fw['abs_trace']]), size)
+            convergence_rel.update(result_fw['rel_trace'][-1], size)
+            convergence_abs.update(result_fw['abs_trace'][-1], size)
 
             if pred.size()[-2] != size[-2] or pred.size()[-1] != size[-1]:
                 pred = F.interpolate(pred, (size[-2], size[-1]), mode='bilinear', align_corners=True)

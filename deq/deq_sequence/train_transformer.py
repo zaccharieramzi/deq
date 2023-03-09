@@ -433,8 +433,8 @@ def evaluate(eval_iter, return_convergence=False):
             if return_convergence:
                 result_fw = ret[3]
                 mems = ret[4:]
-                convergence_rel.update(np.mean([r[-1] for r in result_fw['rel_trace']]), target.size(0))
-                convergence_abs.update(np.mean([r[-1] for r in result_fw['abs_trace']]), target.size(0))
+                convergence_rel.update(result_fw['rel_trace'][-1], target.size(0))
+                convergence_abs.update(result_fw['abs_trace'][-1], target.size(0))
             else:
                 mems = ret[3:]
             loss, _, sradius = ret[0], ret[1], ret[2]

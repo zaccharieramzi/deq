@@ -636,7 +636,7 @@ if args.eval:
     df = df.append({'n_forward': args.f_thres, 'test_loss': test_loss, 'test_ppl': math.exp(test_loss),
                     'test_cvg_rel': test_cvg_rel, 'test_cvg_abs': test_cvg_abs,
                     'val_loss': valid_loss, 'val_ppl': math.exp(valid_loss),
-                    'val_cvg_rel': val_cvg_rel, 'val_cvg_abs': val_cvg_abs,
+                    'val_cvg_rel': valid_cvg_rel, 'val_cvg_abs': valid_cvg_abs,
                     'f_solver': args.f_solver,
                     'train_loss': train_loss, 'train_ppl': math.exp(train_loss),
                     'train_cvg_rel': train_cvg_rel, 'train_cvg_abs': train_cvg_abs,

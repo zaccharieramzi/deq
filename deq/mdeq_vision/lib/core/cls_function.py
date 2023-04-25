@@ -305,7 +305,10 @@ def validate(config, val_loader, model, criterion, lr_scheduler, epoch, output_d
             writer.add_scalar('stability/sradius', sradiuses.avg, epoch)
 
     if return_loss:
-        return losses.avg
+        if return_convergence:
+            return losses.avg, convergence_rel.avg, convergence_abs.avg
+        else:
+            return losses.avg
     else:
         if return_convergence:
             return top1.avg, convergence_rel.avg, convergence_abs.avg

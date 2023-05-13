@@ -13,7 +13,6 @@ copy_memory/
 submissions/
 Mess/
 .ipynb_checkpoint/
-*.ipynb
 runs/
 private_*
 *_old/

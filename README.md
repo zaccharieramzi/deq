@@ -73,3 +73,59 @@ For NLP, with `f_thres` the number of test-time iterations:
   --debug \
   --results_file transformer_results.csv
 ```
+
+
+You can then use the [`n_iter_results_plots.ipynb`](common_experiments/n_iter_results_plots.ipynb) notebook to plot the results.
+
+
+## Reproducing Fig. 6, 7 of the paper
+
+Follow the instructions above with the right flags used in the script to reproduce each figure.
+
+## Reproducing Fig. 5 of the paper
+In order to reproduce Fig 5. of the paper you first need to train the associated models (the data should be automatically download from the web with the pytorch dataset object).
+
+For the IFT trained models with `seed` the seed:
+
+```
+f_thres=18 output_dir=stability/ift_${f_thres} python deq/mdeq_vision/tools/cls_train.py \
+    --cfg deq/mdeq_vision/experiments/cifar/cls_mdeq_TINY.yaml \
+    --seed $seed \
+    TRAIN.ALL_UNROLLED False \
+    DEQ.F_EPS 0.0000001 \
+    DEQ.F_THRES $f_thres \
+    DEQ.RAND_F_THRES_DELTA 0 \
+    CUDNN.BENCHMARK False \
+    CUDNN.DETERMINISTIC True \
+    OUTPUT_DIR $output_dir
+```
+
+For the unrolled trained models with `seed` the seed:
+
+```
+f_thres=18 output_dir=stability/unrolled_${f_thres} python deq/mdeq_vision/tools/cls_train.py \
+    --cfg deq/mdeq_vision/experiments/cifar/cls_mdeq_TINY.yaml \
+    --seed $seed \
+    TRAIN.ALL_UNROLLED True \
+    DEQ.F_EPS 0.0000001 \
+    DEQ.F_THRES $f_thres \
+    DEQ.RAND_F_THRES_DELTA 0 \
+    CUDNN.BENCHMARK False \
+    CUDNN.DETERMINISTIC True \
+    OUTPUT_DIR $output_dir
+```
+
+Then you can evaluate the models using the following command with `seed` the seed, `output_dir` the directory of the saved models (stability/unrolled_18 for unrolled and stability/ift_18 for IFT) and `f_thres` the number of test-time iterations:
+
+```
+python deq/mdeq_vision/tools/cls_valid.py \
+    --cfg deq/mdeq_vision/experiments/cifar/cls_mdeq_TINY.yaml \
+    --results_name stability_results.csv \
+    --seed $seed \
+    TEST.MODEL_FILE ${output_dir}/cifar10/cls_mdeq_TINY/final_state_seed$seed.pth.tar \
+    DEQ.RAND_F_THRES_DELTA 0 \
+    DEQ.F_EPS 0.0000001 \
+    DEQ.F_THRES $f_thres
+```
+
+Finally to generate the figure, use the [`stability_results.ipynb`](common_experiments/stability_results.ipynb) notebook.

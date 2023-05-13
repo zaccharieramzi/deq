@@ -7,6 +7,7 @@ import random
 import time
 
 import numpy as np
+import pandas as pd
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -18,6 +19,7 @@ from deq.lib.solvers import anderson, broyden
 from deq.lib import radam
 from deq.deq_sequence.utils.exp_utils import create_exp_dir
 from deq.deq_sequence.utils.data_parallel import BalancedDataParallel
+from deq.mdeq_vision.lib.utils.utils import AverageMeter
 
 
 parser = argparse.ArgumentParser(description='PyTorch DEQ Sequence Model')
@@ -117,6 +119,7 @@ parser.add_argument('--f_thres', type=int, default=40,
                     help='forward pass Broyden threshold')
 parser.add_argument('--b_thres', type=int, default=40,
                     help='backward pass Broyden threshold')
+parser.add_argument('--f_eps', type=float, default=1e-3)
 
 # Jacobian regularization related [Bai et al. 2021]
 parser.add_argument('--jac_loss_weight', type=float, default=0.0,
@@ -185,6 +188,10 @@ parser.add_argument('--load', type=str, default='',
 parser.add_argument('--name', type=str, default='N/A',
                     help='name of the trial')
 
+
+# Misc
+parser.add_argument('--results_file', type=str, default='results.csv',
+                    help='results file')
 args = parser.parse_args()
 args.tied = not args.not_tied
 args.pretrain_steps += args.start_train_steps
@@ -318,7 +325,8 @@ else:
                              div_val=args.div_val, tie_projs=tie_projs, pre_lnorm=args.pre_lnorm,
                              wnorm=args.wnorm, local_size=args.local_size, pretrain_steps=args.pretrain_steps,
                              tgt_len=args.tgt_len, mem_len=args.mem_len, cutoffs=cutoffs, load=args.load,
-                             f_solver=eval(args.f_solver), b_solver=eval(args.b_solver), stop_mode=args.stop_mode, logging=logging)
+                             f_solver=eval(args.f_solver), b_solver=eval(args.b_solver), stop_mode=args.stop_mode, logging=logging,
+                             f_eps=args.f_eps)
     if len(args.load) == 0:
         model.apply(weights_init)    # Note: This applies weight_init recursively to modules in model
         model.word_emb.apply(weights_init)
@@ -401,7 +409,7 @@ logging('=' * 100)
 # Training code
 ###############################################################################
 
-def evaluate(eval_iter):
+def evaluate(eval_iter, return_convergence=False):
     global train_step
     model.eval()
     model.reset_length(args.eval_tgt_len, args.mem_len)
@@ -411,6 +419,9 @@ def evaluate(eval_iter):
     rho_list = []
     if args.spectral_radius_mode:
         print("WARNING: You are evaluating with the power method at val. time. This may make things extremely slow.")
+    if return_convergence:
+        convergence_rel = AverageMeter()
+        convergence_abs = AverageMeter()
     with torch.no_grad():
         mems = []
         for i, (data, target, seq_len) in enumerate(eval_iter):
@@ -418,8 +429,15 @@ def evaluate(eval_iter):
                 break
             ret = para_model(data, target, mems, train_step=train_step, f_thres=args.f_thres,
                              b_thres=args.b_thres, compute_jac_loss=False,
-                             spectral_radius_mode=args.spectral_radius_mode, writer=writer)
-            loss, _, sradius, mems = ret[0], ret[1], ret[2], ret[3:]
+                             spectral_radius_mode=args.spectral_radius_mode, writer=writer, return_result=return_convergence)
+            if return_convergence:
+                result_fw = ret[3]
+                mems = ret[4:]
+                convergence_rel.update(result_fw['rel_trace'][-1], target.size(0))
+                convergence_abs.update(result_fw['abs_trace'][-1], target.size(0))
+            else:
+                mems = ret[3:]
+            loss, _, sradius = ret[0], ret[1], ret[2]
             loss = loss.mean()
             if args.spectral_radius_mode:
                 rho_list.append(sradius.mean().item())
@@ -428,7 +446,10 @@ def evaluate(eval_iter):
     if rho_list:
         logging(f"(Estimated) Spectral radius over validation set: {np.mean(rho_list)}")
     model.train()
-    return total_loss / total_len
+    if return_convergence:
+        return total_loss / total_len, convergence_rel.avg, convergence_abs.avg
+    else:
+        return total_loss / total_len
 
 
 def train():
@@ -581,12 +602,48 @@ eval_start_time = time.time()
 if args.eval:
     train_step = 1e9
     epoch = -1
-    valid_loss = evaluate(va_iter)
+    valid_loss, valid_cvg_rel, valid_cvg_abs = evaluate(va_iter, return_convergence=True)
     logging('=' * 100)
     logging('| End of training | valid loss {:5.2f} | valid ppl {:9.3f}'.format(valid_loss, math.exp(valid_loss)))
     logging('=' * 100)
 
-    test_loss = evaluate(te_iter)
+    test_loss, test_cvg_rel, test_cvg_abs = evaluate(te_iter, return_convergence=True)
+    train_loss, train_cvg_rel, train_cvg_abs = evaluate(tr_iter, return_convergence=True)
+    # add the test loss to the results file in csv format
+    # create the results file if it doesn't exist and add a header to it
+    # specifying the the following columns: n forward iterations
+    # test loss, test ppl val loss val ppl
+    # all via pandas
+    if not os.path.exists(args.results_file):
+        df = pd.DataFrame(columns=[
+            'n_forward',
+            'test_loss',
+            'test_ppl',
+            'test_cvg_rel',
+            'test_cvg_abs',
+            'val_loss',
+            'val_ppl',
+            'val_cvg_rel',
+            'val_cvg_abs',
+            'train_loss',
+            'train_ppl',
+            'train_cvg_rel',
+            'train_cvg_abs',
+            'f_solver',
+        ])
+        df.to_csv(args.results_file, index=False)
+    df = pd.read_csv(args.results_file)
+    df = df.append({'n_forward': args.f_thres, 'test_loss': test_loss, 'test_ppl': math.exp(test_loss),
+                    'test_cvg_rel': test_cvg_rel, 'test_cvg_abs': test_cvg_abs,
+                    'val_loss': valid_loss, 'val_ppl': math.exp(valid_loss),
+                    'val_cvg_rel': valid_cvg_rel, 'val_cvg_abs': valid_cvg_abs,
+                    'f_solver': args.f_solver,
+                    'train_loss': train_loss, 'train_ppl': math.exp(train_loss),
+                    'train_cvg_rel': train_cvg_rel, 'train_cvg_abs': train_cvg_abs,
+    }, ignore_index=True)
+    df.to_csv(args.results_file, index=False)
+
+
     logging('=' * 100)
     logging('| End of training | test loss {:5.2f} | test ppl {:9.3f}'.format(test_loss, math.exp(test_loss)))
     logging('=' * 100)

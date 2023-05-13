@@ -22,7 +22,8 @@ class BaseDataset(data.Dataset):
                  downsample_rate=1,
                  scale_factor=16,
                  mean=[0.485, 0.456, 0.406],
-                 std=[0.229, 0.224, 0.225]):
+                 std=[0.229, 0.224, 0.225],
+                 return_convergence=False):
 
         self.base_size = base_size
         self.crop_size = crop_size
@@ -32,6 +33,8 @@ class BaseDataset(data.Dataset):
         self.std = std
         self.scale_factor = scale_factor
         self.downsample_rate = 1./downsample_rate
+
+        self.return_convergence = return_convergence
 
         self.files = []
 
@@ -148,7 +151,7 @@ class BaseDataset(data.Dataset):
 
     def inference(self, model, image, flip=False):
         size = image.size()
-        pred, _, _ = model(x=image, train_step=-1)
+        pred, *_, result_fw = model(x=image, train_step=-1, return_result=self.return_convergence)
         pred = F.upsample(input=pred,
                           size=(size[-2], size[-1]),
                           mode='bilinear')
@@ -164,7 +167,10 @@ class BaseDataset(data.Dataset):
                 flip_pred = flip_pred.cuda()
             pred += flip_pred
             pred = pred * 0.5
-        return pred.exp()
+        if self.return_convergence:
+            return pred.exp(), result_fw
+        else:
+            return pred.exp()
 
     def multi_scale_inference(self, model, image, scales=[1], flip=False):
         batch, _, ori_height, ori_width = image.size()

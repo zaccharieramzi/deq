@@ -205,7 +205,7 @@ class DEQTransformerLM(nn.Module):
                  dropout, dropatt, tie_weights=True, d_embed=None, div_val=1,
                  tie_projs=[False], pre_lnorm=False, wnorm=False, tgt_len=None,
                  mem_len=None, local_size=0, pretrain_steps=1, cutoffs=[], load='',
-                 f_solver=anderson, b_solver=None, stop_mode="rel", logging=None):
+                 f_solver=anderson, b_solver=None, stop_mode="rel", logging=None, f_eps=1e-3):
         super().__init__()
         self.n_token = n_token
 
@@ -233,6 +233,7 @@ class DEQTransformerLM(nn.Module):
         self.func = RelPartialLearnableDecoderLayer(n_head, d_model, d_head, d_inner, dropout=dropout, dropatt=dropatt,
                                                     pre_lnorm=pre_lnorm, local_size=local_size)
         self.f_solver = f_solver
+        self.f_eps = f_eps
         self.b_solver = b_solver if b_solver else self.f_solver
         self.hook = None
         self.stop_mode = stop_mode
@@ -299,7 +300,7 @@ class DEQTransformerLM(nn.Module):
             return [new_z0, new_u0]
 
     def _forward(self, dec_inp, mems=None, f_thres=30, b_thres=40, train_step=-1,
-                 compute_jac_loss=True, spectral_radius_mode=False, writer=None):
+                 compute_jac_loss=True, spectral_radius_mode=False, writer=None, return_result=False):
         """
         Apply the DEQ-Transformer language model on input word tokens
 
@@ -351,7 +352,7 @@ class DEQTransformerLM(nn.Module):
             # Compute the equilibrium via DEQ. When in training mode, we need to register the analytical backward
             # pass according to the Theorem 1 in the paper.
             with torch.no_grad():
-                result = self.f_solver(lambda z: self.func(z, *func_args), z1s, threshold=f_thres, stop_mode=self.stop_mode)
+                result = self.f_solver(lambda z: self.func(z, *func_args), z1s, threshold=f_thres, stop_mode=self.stop_mode, eps=self.f_eps)
                 z1s = result['result']
             new_z1s = z1s
 
@@ -380,7 +381,10 @@ class DEQTransformerLM(nn.Module):
 
         core_out = self.iodrop(new_z1s, self.dropout).permute(2,0,1).contiguous()       # qlen x bsz x d_model
         new_mems = self._update_mems(new_z1s, us, z0, mlen, qlen)
-        return core_out, new_mems, jac_loss.view(-1,1), sradius.view(-1,1)
+        if return_result:
+            return core_out, new_mems, jac_loss.view(-1,1), sradius.view(-1,1), result
+        else:
+            return core_out, new_mems, jac_loss.view(-1,1), sradius.view(-1,1)
 
     def forward(self, data, target, mems, train_step=-1, **kwargs):
         # nn.DataParallel does not allow size(0) tensors to be broadcasted.
@@ -406,14 +410,23 @@ class DEQTransformerLM(nn.Module):
         compute_jac_loss = kwargs.get('compute_jac_loss', True)
         sradius_mode = kwargs.get('spectral_radius_mode', False)
         writer = kwargs.get('writer', None)
-        hidden, new_mems, jac_loss, sradius = self._forward(data, mems=mems, f_thres=f_thres, b_thres=b_thres, train_step=train_step,
+        return_result = kwargs.get('return_result', False)
+        out = self._forward(data, mems=mems, f_thres=f_thres, b_thres=b_thres, train_step=train_step,
                                                             compute_jac_loss=compute_jac_loss, spectral_radius_mode=sradius_mode,
-                                                            writer=writer)
+                                                            writer=writer, return_result=return_result)
+        if return_result:
+            hidden, new_mems, jac_loss, sradius, result_fw = out
+        else:
+            hidden, new_mems, jac_loss, sradius = out
         pred_hid = hidden[-tgt_len:]
         loss = self.crit(pred_hid.view(-1, pred_hid.size(-1)), target.contiguous().view(-1))
         loss = loss.view(tgt_len, -1)
 
         if new_mems is None:
+            if return_result:
+                return [loss, jac_loss, sradius, result_fw]
             return [loss, jac_loss, sradius]
         else:
+            if return_result:
+                return [loss, jac_loss, sradius, result_fw] + new_mems
             return [loss, jac_loss, sradius] + new_mems

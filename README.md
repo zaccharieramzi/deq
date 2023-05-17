@@ -12,6 +12,7 @@ pip install .
 
 ## Reproducing Fig. 2 of the paper
 In order to reproduce Fig 2. of the paper you will need to download the data and the model weights for each of the experiments.
+The weights come from the original work that introduced the DEQs and the MDEQs.
 
 In the following Table you have the links to each of the data and weights for the experiments:
 
@@ -78,7 +79,7 @@ For NLP, with `f_thres` the number of test-time iterations:
 You can then use the [`n_iter_results_plots.ipynb`](common_experiments/n_iter_results_plots.ipynb) notebook to plot the results.
 
 
-## Reproducing Fig. 6, 7 of the paper
+## Reproducing Fig. G.1, G.2 of the paper
 
 Follow the instructions above with the right flags used in the script to reproduce each figure.
 
